@@ -47,10 +47,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added Vitest coverage: `extractPeaks` known-signal exact-value tests, `decodeAndExtractPeaks`/`decodeViaBrowser`/`decodeAudioFile` integration tests against real WAV bytes (via `node-web-audio-api`); 7 new tests (27 total)
   - Verified: `npx tsc --noEmit`, `npm run lint`, `npm run format:check`, `npm run test`, `cargo test`, and `npm run tauri dev` all pass
   - `src-tauri/capabilities/default.json` intentionally left unchanged: Tauri v2's ACL/capabilities system governs plugin commands (`fs:*`, `dialog:*`), not app-defined `#[tauri::command]` functions registered via `generate_handler!` — confirmed against the auto-generated `src-tauri/gen/schemas/acl-manifests.json`, which lists no entries for the app's own commands
+- **Phase 3**: Zustand State Slices
+  - Added `src/store/createDeckStore.ts` — shared factory for the two structurally-identical deck stores (track metadata, playback state, current time, pitch/pitch-range, key lock, hot cues); `useDeckAStore.ts`/`useDeckBStore.ts` are one-line instantiations
+  - Added `src/store/useMixerStore.ts` — per-deck channel strips (trim, 3-band EQ + kills, filter position, volume fader, PFL), crossfader position/curve, master/cue gain; setters clamp to the same ranges as the Phase 2 audio nodes (EQ -24..+6 dB, filter -1..1, faders 0..1)
+  - Added `src/store/useLibraryStore.ts` — selected folder, scanned files, search query, column sort; exports `selectFilteredFiles()`, a reusable case-insensitive filter+sort selector
+  - Added `src/store/useAutomixStore.ts` — play queue (`crypto.randomUUID()` ids), ping-pong status/active deck, transition style/duration, trigger threshold
+  - Added `src/store/useSamplerStore.ts` — 8 fixed slots (file, label, gain trim, choke group 0-4)
+  - Added `src/store/useUIStore.ts` — shift lock, theme, panel ratios, active context menu; `theme`/`panelRatios` persist to `localStorage` via zustand's `persist` middleware (partialized — shift lock and the context menu are momentary, not persisted)
+  - Added `src/types/deck.ts` — `DeckId`/`EqBand`/`SlotIndex`, the first use of the previously-empty `src/types/` folder from AGENTS.md §3's architecture. Note: `src/services/midi/types.ts` independently defines its own `DeckId`/`PadIndex` with the same values — left as-is (out of scope for this phase) rather than refactoring another module as a side effect; worth reconciling when the MIDI layer gets wired to these stores
+  - All 6 stores use zustand's `devtools` middleware (named actions, no extra dependency — both `devtools` and `persist` ship in the `zustand` package)
+  - No `immer` dependency added: plain `set()` with explicit spreads was sufficient for these state shapes (AGENTS.md §7: avoid unnecessary third-party dependencies)
+  - Added Vitest coverage for all 6 stores (action correctness, clamping, queue reordering, sort/filter behavior); 39 new tests (66 total)
+  - Verified: `npx tsc --noEmit`, `npm run lint`, `npm run format:check`, `npm run test`, and `npm run tauri dev` all pass
 
 ### Fixed
 - `threeBandEQ`: per-band kill switches were wired to gate the downstream node in the series filter chain, so killing the low band silenced the mid/high bands too; fixed to floor only that band's own filter gain, verified by a test asserting a high-frequency tone survives a low-band kill
 - Initial approach for typechecking `waveform.worker.ts` used a separate `tsconfig.worker.json` with the `WebWorker` lib, on the assumption it would include Web Audio API types — it doesn't (only `DOM` lib defines `AudioBuffer`/`OfflineAudioContext`/etc.), so this was replaced with a single-tsconfig approach using a local type cast at the one call site that needs the worker-scope `postMessage`/`onmessage` signatures
+- `useLibraryStore`'s `selectFilteredFiles()` sort compared raw (case-sensitive) string values despite being documented as case-insensitive, so "apple" sorted after "Banana"/"Cherry"; caught by its own test, fixed by lowercasing string values before comparison
 - Any other bug fixes during the phase
 
 ### Changed
