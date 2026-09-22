@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+import type { ContextMenuTarget } from "../components/common/contextMenuTargets";
 
 /** Matches the 4 skins planned for Phase 8; only "midnight-slate" has CSS variables defined so far (Phase 1). */
 export type ThemeId = "midnight-slate" | "pioneer-stealth" | "technics-silver" | "day-shift";
@@ -13,8 +14,7 @@ export interface PanelRatios {
 export interface ActiveContextMenu {
   readonly x: number;
   readonly y: number;
-  /** Opaque identifier for what was right-clicked; Phase 4's ContextMenu component interprets this. */
-  readonly targetId: string;
+  readonly target: ContextMenuTarget;
 }
 
 // Matches ImplementationPlan.md §1's ~20% / ~55% / ~25% three-column split.

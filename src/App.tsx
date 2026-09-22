@@ -1,10 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getAudioContext, ensureAudioContextRunning } from "./audio";
 import { openFolderDialog } from "./services/dialog";
+import { initNativeFileDropListener } from "./services/dragAndDrop";
+import { ContextMenu } from "./components/common/ContextMenu";
 
 function App() {
   const [audioState, setAudioState] = useState<AudioContextState>("suspended");
   const [folderPath, setFolderPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void initNativeFileDropListener().then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
 
   async function handleActivateAudio() {
     const ctx = getAudioContext();
@@ -40,6 +50,7 @@ function App() {
       </div>
 
       {folderPath !== null && <p className="text-textMuted">Selected: {folderPath}</p>}
+      <ContextMenu />
     </main>
   );
 }

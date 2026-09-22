@@ -14,7 +14,7 @@
 | 2.5 | Audio Decoding & Waveform Pipeline (Risk #2) | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 3 | Zustand State Slices | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 3.5 | Automix Dead-Air Watchdog (Risk #4) | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
-| 4 | Universal Tooltips, Context Menus & Drag-and-Drop | [ ] Pending | | |
+| 4 | Universal Tooltips, Context Menus & Drag-and-Drop | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 5 | Resizable 3-Column Lower Bay | [ ] Pending | | |
 | 6 | Decks, 60 FPS Platters & Center Mixer | [ ] Pending | | |
 | 6.5 | MIDI Hot-Plug Support (Risk #5) | [ ] Pending | | `midimessage` + `statechange` handling |

@@ -38,8 +38,9 @@ describe("useUIStore", () => {
   });
 
   it("opens and closes the context menu", () => {
-    useUIStore.getState().openContextMenu({ x: 10, y: 20, targetId: "deck-a" });
-    expect(useUIStore.getState().activeContextMenu).toEqual({ x: 10, y: 20, targetId: "deck-a" });
+    const target = { kind: "deck", deck: "a" } as const;
+    useUIStore.getState().openContextMenu({ x: 10, y: 20, target });
+    expect(useUIStore.getState().activeContextMenu).toEqual({ x: 10, y: 20, target });
     useUIStore.getState().closeContextMenu();
     expect(useUIStore.getState().activeContextMenu).toBeNull();
   });
