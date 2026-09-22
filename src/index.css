@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default (Midnight Slate) skin variables — Phase 8 adds the remaining 3
+   skins as sibling [data-theme="..."] blocks and a runtime switcher. Values
+   are R G B triplets (no commas) so Tailwind's <alpha-value> works. */
+:root,
+[data-theme="midnight-slate"] {
+  --color-surface: 17 19 23;
+  --color-surface-raised: 27 30 36;
+  --color-accent: 56 189 248;
+  --color-text-primary: 241 245 249;
+  --color-text-muted: 148 163 184;
+}

@@ -1,0 +1,12 @@
+dist
+src-tauri/target
+node_modules
+package-lock.json
+
+# Hand-authored project docs with ASCII diagrams / fixed-width layout that
+# Prettier's markdown formatter would corrupt (e.g. box-drawing diagrams).
+AGENTS.md
+CLAUDE.md
+ImplementationPlan.md
+TODO.md
+CHANGELOG.md
