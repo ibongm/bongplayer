@@ -65,3 +65,53 @@ export async function decodeAndExtractPeaks(
   const audioBuffer = await context.decodeAudioData(bytes.slice(0));
   return extractPeaks(audioBuffer, outputWidth);
 }
+
+export interface WaveformWindow {
+  /** The slice of the full peaks array visible in this window. */
+  readonly peaks: Float32Array;
+  readonly windowDurationSeconds: number;
+  /** Where the playhead falls within the window — pass straight to WaveformCanvas's `playhead` prop. */
+  readonly playheadInWindowSeconds: number;
+}
+
+/**
+ * Slices `fullPeaks` (covering `fullDurationSeconds`) down to a
+ * `windowSeconds`-wide window centered on `currentTimeSeconds`, for
+ * ScrollingWaveforms.tsx's fixed-center-playhead style (as opposed to
+ * WaveformCanvas's own default of a static full-track view with a moving
+ * playhead line). Clamped at the track's start/end: the *window's
+ * position* shifts rather than its size, so the playhead visibly
+ * de-centers near the start/end — exactly how real scrolling waveforms
+ * behave, rather than padding with fake silence.
+ */
+export function windowPeaks(
+  fullPeaks: Float32Array,
+  fullDurationSeconds: number,
+  currentTimeSeconds: number,
+  windowSeconds: number,
+): WaveformWindow {
+  const pixelCount = fullPeaks.length / 2;
+  if (pixelCount === 0 || fullDurationSeconds <= 0 || windowSeconds <= 0) {
+    return {
+      peaks: new Float32Array(0),
+      windowDurationSeconds: windowSeconds,
+      playheadInWindowSeconds: windowSeconds / 2,
+    };
+  }
+
+  const secondsPerPixel = fullDurationSeconds / pixelCount;
+  const halfWindow = windowSeconds / 2;
+  const maxStart = Math.max(0, fullDurationSeconds - windowSeconds);
+  const startSeconds = Math.min(Math.max(currentTimeSeconds - halfWindow, 0), maxStart);
+  const playheadInWindowSeconds = currentTimeSeconds - startSeconds;
+
+  const startPixel = Math.floor(startSeconds / secondsPerPixel);
+  const windowPixelCount = Math.max(1, Math.round(windowSeconds / secondsPerPixel));
+  const endPixel = Math.min(pixelCount, startPixel + windowPixelCount);
+
+  return {
+    peaks: fullPeaks.slice(startPixel * 2, endPixel * 2),
+    windowDurationSeconds: windowSeconds,
+    playheadInWindowSeconds,
+  };
+}

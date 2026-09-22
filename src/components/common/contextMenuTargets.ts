@@ -3,8 +3,9 @@ import { useDeckAStore } from "../../store/useDeckAStore";
 import { useDeckBStore } from "../../store/useDeckBStore";
 import { useAutomixStore } from "../../store/useAutomixStore";
 import { useSamplerStore, type ChokeGroup } from "../../store/useSamplerStore";
-import { loadTrackMetadata } from "../../services/trackLoader";
+import { decodeTrack } from "../../services/trackLoader";
 import { enqueueTrackWithDuration } from "../../services/automixEnqueue";
+import { getMasterGraph, deckEngineFor } from "../../audio/masterGraph";
 
 export interface ContextMenuItem {
   readonly id: string;
@@ -31,8 +32,11 @@ function deckStoreFor(deck: DeckId) {
 }
 
 function loadTrackToDeck(deck: DeckId, filePath: string, fileName: string): void {
-  void loadTrackMetadata(filePath, fileName)
-    .then((metadata) => deckStoreFor(deck).getState().loadTrack(metadata))
+  void decodeTrack(filePath, fileName)
+    .then(({ metadata, audioBuffer }) => {
+      deckStoreFor(deck).getState().loadTrack(metadata);
+      deckEngineFor(getMasterGraph(), deck).loadBuffer(audioBuffer);
+    })
     .catch((error: unknown) => {
       console.error(`Failed to load "${fileName}" to Deck ${deck.toUpperCase()}:`, error);
     });

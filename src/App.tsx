@@ -4,6 +4,8 @@ import { openFolderDialog } from "./services/dialog";
 import { initNativeFileDropListener } from "./services/dragAndDrop";
 import { ContextMenu } from "./components/common/ContextMenu";
 import { LowerBay } from "./components/layout/LowerBay";
+import { DeckMixerRow } from "./components/layout/DeckMixerRow";
+import { ScrollingWaveforms } from "./components/waveforms/ScrollingWaveforms";
 
 function App() {
   const [audioState, setAudioState] = useState<AudioContextState>("suspended");
@@ -51,7 +53,14 @@ function App() {
         )}
       </header>
 
-      {/* Deck/mixer/waveform rows land above this in Phase 6 — the lower bay is self-contained for now. */}
+      <div className="h-32 shrink-0 border-b border-white/10">
+        <ScrollingWaveforms />
+      </div>
+
+      <div className="h-[420px] shrink-0 border-b border-white/10">
+        <DeckMixerRow />
+      </div>
+
       <div className="min-h-0 flex-1">
         <LowerBay />
       </div>
