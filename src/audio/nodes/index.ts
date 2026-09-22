@@ -18,3 +18,6 @@ export type { EqualPowerCrossfade } from "./equalPower";
 
 export { createPflBus, createSplitCableMerger, routeElementToOutputDevice } from "./pflBus";
 export type { PflBus } from "./pflBus";
+
+export { createSilenceDetector, createSilenceWatchdog } from "./silenceWatchdog";
+export type { SilenceDetector, SilenceWatchdog, SilenceWatchdogOptions } from "./silenceWatchdog";

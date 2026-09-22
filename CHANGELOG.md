@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added Vitest coverage for all 6 stores (action correctness, clamping, queue reordering, sort/filter behavior); 39 new tests (66 total)
   - Verified: `npx tsc --noEmit`, `npm run lint`, `npm run format:check`, `npm run test`, and `npm run tauri dev` all pass
 
+- **Phase 3.5**: Automix Dead-Air Watchdog (Risk #4)
+  - Added `src/audio/nodes/silenceWatchdog.ts` — `createSilenceDetector()` (pure, tested persistence logic: RMS level + grace period) wrapped by `createSilenceWatchdog()` (an `AnalyserNode` + `setInterval` poller); the fallback *action* itself (e.g. skip to the next automix track) is Phase 7's `automixController.ts` to wire up — this phase only builds the detection primitive
+  - 5 new tests on the pure detector logic (71 total); the `AnalyserNode`/timer wiring is intentionally left untested directly, same reasoning as `waveform.worker.ts`'s thin wrapper — `AnalyserNode` readings are only meaningful against a live real-time `AudioContext`, which `OfflineAudioContext`-based testing can't exercise
+  - Verified: `npx tsc --noEmit`, `npm run lint`, `npm run format:check`, `npm run test` all pass
+
 ### Fixed
 - `threeBandEQ`: per-band kill switches were wired to gate the downstream node in the series filter chain, so killing the low band silenced the mid/high bands too; fixed to floor only that band's own filter gain, verified by a test asserting a high-frequency tone survives a low-band kill
 - Initial approach for typechecking `waveform.worker.ts` used a separate `tsconfig.worker.json` with the `WebWorker` lib, on the assumption it would include Web Audio API types — it doesn't (only `DOM` lib defines `AudioBuffer`/`OfflineAudioContext`/etc.), so this was replaced with a single-tsconfig approach using a local type cast at the one call site that needs the worker-scope `postMessage`/`onmessage` signatures
