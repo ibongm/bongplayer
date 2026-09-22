@@ -5,16 +5,27 @@ import { initNativeFileDropListener } from "./services/dragAndDrop";
 import { initMidiHotPlug } from "./services/midiAccess";
 import { initAutomixController } from "./audio/automixController";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useUIStore, type ThemeId } from "./store/useUIStore";
+import { THEMES, applyTheme } from "./theme/themes";
 import { ContextMenu } from "./components/common/ContextMenu";
 import { LowerBay } from "./components/layout/LowerBay";
 import { DeckMixerRow } from "./components/layout/DeckMixerRow";
 import { ScrollingWaveforms } from "./components/waveforms/ScrollingWaveforms";
+import { RadioPanel } from "./components/radio/RadioPanel";
+import { KaraokeStage } from "./components/karaoke/KaraokeStage";
 
 function App() {
   const [audioState, setAudioState] = useState<AudioContextState>("suspended");
   const [folderPath, setFolderPath] = useState<string | null>(null);
+  const [karaokeOpen, setKaraokeOpen] = useState(false);
+  const theme = useUIStore((state) => state.theme);
+  const setTheme = useUIStore((state) => state.setTheme);
 
   useKeyboardShortcuts();
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -68,6 +79,26 @@ function App() {
         {folderPath !== null && (
           <span className="truncate text-sm text-textMuted">{folderPath}</span>
         )}
+        <RadioPanel />
+        <button
+          type="button"
+          onClick={() => setKaraokeOpen(true)}
+          className="rounded bg-surfaceRaised px-3 py-1.5 text-sm text-textPrimary hover:bg-accent/20"
+        >
+          Karaoke
+        </button>
+        <select
+          value={theme}
+          onChange={(event) => setTheme(event.target.value as ThemeId)}
+          aria-label="Theme"
+          className="ml-auto rounded bg-surfaceRaised px-2 py-1.5 text-sm text-textPrimary"
+        >
+          {THEMES.map((definition) => (
+            <option key={definition.id} value={definition.id}>
+              {definition.label}
+            </option>
+          ))}
+        </select>
       </header>
 
       <div className="h-32 shrink-0 border-b border-white/10">
@@ -83,6 +114,7 @@ function App() {
       </div>
 
       <ContextMenu />
+      {karaokeOpen && <KaraokeStage onClose={() => setKaraokeOpen(false)} />}
     </main>
   );
 }

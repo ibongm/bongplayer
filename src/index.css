@@ -13,3 +13,29 @@
   --color-text-primary: 241 245 249;
   --color-text-muted: 148 163 184;
 }
+
+/* Phase 8's remaining 3 skins — src/theme/themes.ts is the single source of
+   truth for these same values (kept in sync manually; see its own comment). */
+[data-theme="pioneer-stealth"] {
+  --color-surface: 10 10 12;
+  --color-surface-raised: 20 20 24;
+  --color-accent: 255 111 0;
+  --color-text-primary: 245 245 245;
+  --color-text-muted: 156 156 163;
+}
+
+[data-theme="technics-silver"] {
+  --color-surface: 196 196 200;
+  --color-surface-raised: 214 214 218;
+  --color-accent: 37 99 235;
+  --color-text-primary: 24 24 27;
+  --color-text-muted: 82 82 91;
+}
+
+[data-theme="day-shift"] {
+  --color-surface: 250 250 250;
+  --color-surface-raised: 255 255 255;
+  --color-accent: 5 150 105;
+  --color-text-primary: 24 24 27;
+  --color-text-muted: 113 113 122;
+}

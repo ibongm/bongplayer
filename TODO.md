@@ -20,7 +20,7 @@
 | 6.5 | MIDI Hot-Plug Support (Risk #5) | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 6.5 | Keyboard Shortcuts & Accessibility (Risk #7) | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 7 | Background Workers, Automix Engine & Web MIDI | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
-| 8 | Radio, Karaoke, Themes & Release Packaging | [ ] Pending | | |
+| 8 | Radio, Karaoke, Themes & Release Packaging | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 
 ---
 
@@ -59,4 +59,4 @@ When marking a phase **complete**:
 
 ## Current Sprint Focus
 
-**Next up:** Phase 8 — Radio, Karaoke, Themes & Release Packaging
+**All 9 planned phases are complete.** No further phases are scheduled in `ImplementationPlan.md`; future work would be new scope, not a pending phase.

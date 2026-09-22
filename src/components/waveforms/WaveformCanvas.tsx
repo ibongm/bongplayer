@@ -1,4 +1,6 @@
 import { memo, useEffect, useRef } from "react";
+import { useUIStore, type ThemeId } from "../../store/useUIStore";
+import { themeAccentColor, themeTextColor } from "../../theme/themes";
 
 export interface WaveformCanvasProps {
   readonly peaks: Float32Array;
@@ -7,8 +9,8 @@ export interface WaveformCanvasProps {
   readonly hotCues: readonly number[];
 }
 
-const WAVEFORM_COLOR = "rgb(56 189 248 / 0.85)";
-const PLAYHEAD_COLOR = "rgb(241 245 249)";
+// Hot-cue markers are a fixed functional/warning color, not a skin-aware
+// token — no theme defines a 6th "danger" variable (see src/theme/themes.ts).
 const HOT_CUE_COLOR = "rgb(248 113 113)";
 const HOT_CUE_WIDTH_PX = 2;
 const PLAYHEAD_WIDTH_PX = 2;
@@ -21,6 +23,7 @@ const PLAYHEAD_WIDTH_PX = 2;
  * re-paints the (potentially large) waveform bars.
  */
 function WaveformCanvasComponent({ peaks, playhead, duration, hotCues }: WaveformCanvasProps) {
+  const theme = useUIStore((state) => state.theme);
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const playheadCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const playheadRef = useRef(playhead);
@@ -30,18 +33,18 @@ function WaveformCanvasComponent({ peaks, playhead, duration, hotCues }: Wavefor
   }, [playhead]);
 
   useEffect(() => {
-    drawWaveform(waveformCanvasRef.current, peaks, hotCues, duration);
-  }, [peaks, hotCues, duration]);
+    drawWaveform(waveformCanvasRef.current, peaks, hotCues, duration, theme);
+  }, [peaks, hotCues, duration, theme]);
 
   useEffect(() => {
     let frameId: number;
     const tick = () => {
-      drawPlayhead(playheadCanvasRef.current, playheadRef.current, duration);
+      drawPlayhead(playheadCanvasRef.current, playheadRef.current, duration, theme);
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
-  }, [duration]);
+  }, [duration, theme]);
 
   return (
     <div className="relative h-full w-full">
@@ -67,6 +70,7 @@ function drawWaveform(
   peaks: Float32Array,
   hotCues: readonly number[],
   duration: number,
+  theme: ThemeId,
 ): void {
   if (canvas === null) return;
   const ctx = canvas.getContext("2d");
@@ -79,7 +83,7 @@ function drawWaveform(
   const midY = height / 2;
   const barWidth = Math.max(1, width / pixelCount);
 
-  ctx.fillStyle = WAVEFORM_COLOR;
+  ctx.fillStyle = themeAccentColor(theme);
   for (let pixel = 0; pixel < pixelCount; pixel++) {
     const min = peaks[pixel * 2];
     const max = peaks[pixel * 2 + 1];
@@ -102,6 +106,7 @@ function drawPlayhead(
   canvas: HTMLCanvasElement | null,
   playheadSeconds: number,
   duration: number,
+  theme: ThemeId,
 ): void {
   if (canvas === null) return;
   const ctx = canvas.getContext("2d");
@@ -111,7 +116,7 @@ function drawPlayhead(
   if (duration <= 0) return;
 
   const x = (playheadSeconds / duration) * width;
-  ctx.strokeStyle = PLAYHEAD_COLOR;
+  ctx.strokeStyle = themeTextColor(theme, "primary");
   ctx.lineWidth = PLAYHEAD_WIDTH_PX;
   ctx.beginPath();
   ctx.moveTo(x, 0);

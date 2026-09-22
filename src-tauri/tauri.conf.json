@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; media-src 'self' asset: https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; media-src 'self' asset: https://asset.localhost http://127.0.0.1:17420; connect-src 'self' ipc: http://ipc.localhost https://lrclib.net",
       "assetProtocol": {
         "enable": true,
         "scope": ["C:/**", "D:/**", "E:/**"]
