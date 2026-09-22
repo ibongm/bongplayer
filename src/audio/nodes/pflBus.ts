@@ -26,11 +26,19 @@ export function createPflBus(context: BaseAudioContext): PflBus {
   const cueBus = context.createGain();
   cueBus.gain.value = dbToGain(0); // initial state, before any audio flows — see musicBus.ts
 
+  // Existence-check plus a try/catch, not just the former: some runtimes
+  // (observed in node-web-audio-api, used for testing — see AGENTS §5's
+  // OfflineAudioContext-for-analysis guidance) declare this method but throw
+  // when it's actually called, rather than simply omitting it.
   const capableContext = context as BaseAudioContext & MediaStreamCapableContext;
-  const mediaStreamDestination =
-    typeof capableContext.createMediaStreamDestination === "function"
-      ? capableContext.createMediaStreamDestination()
-      : null;
+  let mediaStreamDestination: MediaStreamAudioDestinationNode | null = null;
+  if (typeof capableContext.createMediaStreamDestination === "function") {
+    try {
+      mediaStreamDestination = capableContext.createMediaStreamDestination();
+    } catch {
+      mediaStreamDestination = null;
+    }
+  }
   if (mediaStreamDestination !== null) {
     cueBus.connect(mediaStreamDestination);
   }

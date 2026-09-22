@@ -17,7 +17,7 @@
 | 4 | Universal Tooltips, Context Menus & Drag-and-Drop | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 5 | Resizable 3-Column Lower Bay | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 6 | Decks, 60 FPS Platters & Center Mixer | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
-| 6.5 | MIDI Hot-Plug Support (Risk #5) | [ ] Pending | | `midimessage` + `statechange` handling |
+| 6.5 | MIDI Hot-Plug Support (Risk #5) | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 6.5 | Keyboard Shortcuts & Accessibility (Risk #7) | [ ] Pending | | DJ-standard keymap, ARIA, focus management |
 | 7 | Background Workers, Automix Engine & Web MIDI | [ ] Pending | | |
 | 8 | Radio, Karaoke, Themes & Release Packaging | [ ] Pending | | |

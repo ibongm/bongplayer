@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useDeckAStore } from "../../store/useDeckAStore";
 import { useDeckBStore } from "../../store/useDeckBStore";
-import { useDeckController } from "../../hooks/useDeckController";
 import { useSamplerStore } from "../../store/useSamplerStore";
-import { triggerSamplerSlot } from "../../audio/samplerEngine";
+import { activateHotCue, activateSamplerSlot } from "../../services/padActions";
 import { loadSamplerSlotViaDialog } from "../../services/samplerLoader";
 import { useUIStore } from "../../store/useUIStore";
 import { SLOT_INDEXES, type DeckId, type SlotIndex } from "../../types/deck";
@@ -29,25 +28,15 @@ const HOT_CUE_LABELS: Readonly<Record<SlotIndex, string>> = {
 export function CuePadMatrix({ deck }: CuePadMatrixProps) {
   const [mode, setMode] = useState<PadMode>("hotcue");
   const deckStore = deck === "a" ? useDeckAStore : useDeckBStore;
-  const controller = useDeckController(deck);
   const hotCues = deckStore((state) => state.hotCues);
   const samplerSlots = useSamplerStore((state) => state.slots);
-
-  function handleHotCuePad(index: SlotIndex): void {
-    const existing = hotCues.find((cue) => cue.index === index);
-    if (existing !== undefined) {
-      controller.seek(existing.positionSeconds);
-    } else {
-      deckStore.getState().setHotCue(index, deckStore.getState().currentTimeSeconds);
-    }
-  }
 
   function handleSamplerPad(index: SlotIndex): void {
     const slot = samplerSlots.find((entry) => entry.index === index);
     if (slot === undefined || slot.filePath === null) {
-      void loadSamplerSlotViaDialog(index);
+      void loadSamplerSlotViaDialog(index); // MIDI hardware can't open a file dialog — click-only.
     } else {
-      triggerSamplerSlot(index, samplerSlots);
+      activateSamplerSlot(index);
     }
   }
 
@@ -82,7 +71,7 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
               <button
                 key={index}
                 type="button"
-                onClick={() => handleHotCuePad(index)}
+                onClick={() => activateHotCue(deck, index)}
                 onContextMenu={(event) => {
                   useUIStore.getState().openContextMenu({
                     x: event.clientX,

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getAudioContext, ensureAudioContextRunning } from "./audio";
 import { openFolderDialog } from "./services/dialog";
 import { initNativeFileDropListener } from "./services/dragAndDrop";
+import { initMidiHotPlug } from "./services/midiAccess";
 import { ContextMenu } from "./components/common/ContextMenu";
 import { LowerBay } from "./components/layout/LowerBay";
 import { DeckMixerRow } from "./components/layout/DeckMixerRow";
@@ -14,6 +15,14 @@ function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void initNativeFileDropListener().then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void initMidiHotPlug().then((fn) => {
       unlisten = fn;
     });
     return () => unlisten?.();
