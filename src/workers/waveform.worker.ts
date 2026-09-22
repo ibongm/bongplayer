@@ -5,6 +5,13 @@
  *   import WaveformWorker from "./workers/waveform.worker.ts?worker";
  *   const worker = new WaveformWorker();
  *
+ * Takes raw bytes rather than a File: this app never actually has a
+ * browser File object anywhere (tracks are loaded by path via
+ * @tauri-apps/plugin-fs's readFile(), and native OS drag-drop hands back
+ * paths too — see src/services/dragAndDrop.ts's DragDropEvent handling) —
+ * an earlier version of this file assumed a File was available, which it
+ * never is in practice.
+ *
  * Only browser-decodable formats (MP3/WAV/AAC/M4A) work here: Tauri's IPC
  * bridge is window-scoped, so the Rust decode_audio fallback used by
  * src/audio/decode.ts on the main thread is not reachable from a worker.
@@ -15,7 +22,7 @@
 import { decodeAndExtractPeaks } from "../audio/waveform";
 
 export interface WaveformWorkerRequest {
-  readonly file: File;
+  readonly bytes: ArrayBuffer;
   readonly outputWidth: number;
 }
 
@@ -27,12 +34,15 @@ export interface WaveformWorkerResponse {
 
 async function handleRequest(request: WaveformWorkerRequest): Promise<WaveformWorkerResponse> {
   try {
-    const bytes = await request.file.arrayBuffer();
     // A throwaway OfflineAudioContext, not the main-thread singleton (which
     // isn't reachable from a worker anyway) — no audio output needed here,
     // only decodeAudioData's decoding capability.
     const context = new OfflineAudioContext(1, 1, 44100);
-    const { peaks, duration } = await decodeAndExtractPeaks(bytes, request.outputWidth, context);
+    const { peaks, duration } = await decodeAndExtractPeaks(
+      request.bytes,
+      request.outputWidth,
+      context,
+    );
     return { peaks, duration };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

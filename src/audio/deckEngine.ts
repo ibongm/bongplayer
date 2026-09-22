@@ -18,6 +18,7 @@ import { dbToGain, rampTarget } from "./utils";
 import { createMusicBus, type MusicBus } from "./nodes/musicBus";
 import { createThreeBandEQ, type ThreeBandEQ } from "./nodes/threeBandEQ";
 import { createBipolarFilter, type BipolarFilter } from "./nodes/bipolarFilter";
+import { createEchoEffect, type EchoEffect } from "./nodes/echoEffect";
 import type { DeckId } from "../types/deck";
 
 const TRIM_MIN_DB = -12;
@@ -32,6 +33,7 @@ export interface DeckEngine {
   readonly musicBus: MusicBus;
   readonly eq: ThreeBandEQ;
   readonly filter: BipolarFilter;
+  readonly echo: EchoEffect;
   /** Connect this downstream (into the crossfader). */
   readonly output: AudioNode;
   loadBuffer(buffer: AudioBuffer): void;
@@ -44,6 +46,8 @@ export interface DeckEngine {
   setTrimDb(db: number): void;
   /** The channel's volume fader, applied after the filter, before the crossfader. */
   setVolumeFader(level: number): void;
+  /** Automix Echo-Out transition primitive: 0 = bypassed (default), 1 = fully wet. */
+  setEchoWetLevel(level: number, rampSeconds?: number): void;
   getCurrentTime(): number;
   isPlaying(): boolean;
   /** The currently loaded track's decoded buffer (for waveform peak extraction), or null if none is loaded. */
@@ -58,11 +62,13 @@ export function createDeckEngine(deck: DeckId): DeckEngine {
   const eq = createThreeBandEQ(context);
   const filter = createBipolarFilter(context);
   const volumeFaderGain = context.createGain();
+  const echo = createEchoEffect(context);
 
   trimGain.connect(musicBus.input);
   musicBus.output.connect(eq.input);
   eq.output.connect(filter.node);
   filter.node.connect(volumeFaderGain);
+  volumeFaderGain.connect(echo.input);
 
   let buffer: AudioBuffer | null = null;
   let sourceNode: AudioBufferSourceNode | null = null;
@@ -173,6 +179,10 @@ export function createDeckEngine(deck: DeckId): DeckEngine {
     rampTarget(volumeFaderGain.gain, clamp(level, 0, 1), context);
   }
 
+  function setEchoWetLevel(level: number, rampSeconds?: number): void {
+    echo.setWetLevel(level, rampSeconds);
+  }
+
   function dispose(): void {
     stopSourceNode();
     trimGain.disconnect();
@@ -180,6 +190,7 @@ export function createDeckEngine(deck: DeckId): DeckEngine {
     eq.dispose();
     filter.dispose();
     volumeFaderGain.disconnect();
+    echo.dispose();
   }
 
   return {
@@ -187,7 +198,8 @@ export function createDeckEngine(deck: DeckId): DeckEngine {
     musicBus,
     eq,
     filter,
-    output: volumeFaderGain,
+    echo,
+    output: echo.output,
     loadBuffer,
     play,
     pause,
@@ -196,6 +208,7 @@ export function createDeckEngine(deck: DeckId): DeckEngine {
     setPlaybackRate,
     setTrimDb,
     setVolumeFader,
+    setEchoWetLevel,
     getCurrentTime,
     isPlaying,
     getBuffer,

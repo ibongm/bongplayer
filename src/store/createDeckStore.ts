@@ -36,6 +36,13 @@ export interface DeckState {
 
   loadTrack(track: TrackMetadata): void;
   clearTrack(): void;
+  /**
+   * Patches bpm/key onto the currently loaded track (Phase 7's background
+   * analysis worker). Guarded by filePath — if a different track has been
+   * loaded since analysis started, the stale result is dropped rather than
+   * silently overwriting the new track's data.
+   */
+  setTrackAnalysis(filePath: string, bpm: number, key: string): void;
   play(): void;
   pause(): void;
   stop(): void;
@@ -68,6 +75,7 @@ type DeckActions = Pick<
   DeckState,
   | "loadTrack"
   | "clearTrack"
+  | "setTrackAnalysis"
   | "play"
   | "pause"
   | "stop"
@@ -105,6 +113,17 @@ export function createDeckStore(deck: DeckId): UseBoundStore<StoreApi<DeckState>
             { track: null, playbackState: "empty", currentTimeSeconds: 0, hotCues: [] },
             false,
             "clearTrack",
+          );
+        },
+
+        setTrackAnalysis(filePath, bpm, key) {
+          set(
+            (state) => {
+              if (state.track === null || state.track.filePath !== filePath) return state;
+              return { track: { ...state.track, bpm, key } };
+            },
+            false,
+            "setTrackAnalysis",
           );
         },
 

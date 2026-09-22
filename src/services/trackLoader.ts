@@ -5,6 +5,8 @@ import type { TrackMetadata } from "../store/createDeckStore";
 export interface DecodedTrack {
   readonly metadata: TrackMetadata;
   readonly audioBuffer: AudioBuffer;
+  /** The raw file bytes — reused by callers that also need to run background analysis (Phase 7). */
+  readonly bytes: ArrayBuffer;
 }
 
 function titleFromFileName(fileName: string): string {
@@ -37,7 +39,7 @@ export async function decodeTrack(filePath: string, fileName: string): Promise<D
     sampleRate: decoded.sampleRate,
   };
 
-  return { metadata, audioBuffer: decoded.audioBuffer };
+  return { metadata, audioBuffer: decoded.audioBuffer, bytes: arrayBuffer };
 }
 
 /** Convenience for callers that only need the metadata (e.g. automix queue duration lookup). */

@@ -3,6 +3,7 @@ import { getAudioContext, ensureAudioContextRunning } from "./audio";
 import { openFolderDialog } from "./services/dialog";
 import { initNativeFileDropListener } from "./services/dragAndDrop";
 import { initMidiHotPlug } from "./services/midiAccess";
+import { initAutomixController } from "./audio/automixController";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { ContextMenu } from "./components/common/ContextMenu";
 import { LowerBay } from "./components/layout/LowerBay";
@@ -29,6 +30,10 @@ function App() {
       unlisten = fn;
     });
     return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    return initAutomixController();
   }, []);
 
   async function handleActivateAudio() {

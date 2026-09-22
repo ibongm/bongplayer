@@ -10,6 +10,7 @@ import { createParserState, parseMidiMessage } from "./midi/parser";
 import { DDJ400_PROFILE } from "./midi/ddj400Profile";
 import type { ControllerMapping, ParserState } from "./midi/types";
 import { applyDeckAction } from "./midiDispatch";
+import { attachMidiOutput, detachMidiOutput, startMidiLedSync } from "./midiOutput";
 
 const KNOWN_PROFILES: readonly ControllerMapping[] = [DDJ400_PROFILE];
 
@@ -83,22 +84,36 @@ export async function initMidiHotPlug(): Promise<() => void> {
   for (const input of access.inputs.values()) {
     attachInput(input);
   }
+  for (const output of access.outputs.values()) {
+    attachMidiOutput(output);
+  }
 
   function handleStateChange(event: MIDIConnectionEvent): void {
     const port = event.port;
-    if (port === null || port.type !== "input") return;
-    const input = port as MIDIInput;
-    if (input.state === "connected") {
-      attachInput(input);
+    if (port === null) return;
+    if (port.type === "input") {
+      const input = port as MIDIInput;
+      if (input.state === "connected") {
+        attachInput(input);
+      } else {
+        detachInput(input.id);
+      }
     } else {
-      detachInput(input.id);
+      const output = port as MIDIOutput;
+      if (output.state === "connected") {
+        attachMidiOutput(output);
+      } else {
+        detachMidiOutput(output.id);
+      }
     }
   }
 
   access.onstatechange = handleStateChange;
+  const stopLedSync = startMidiLedSync();
 
   return () => {
     access.onstatechange = null;
+    stopLedSync();
     for (const inputId of Array.from(connectedInputs.keys())) {
       detachInput(inputId);
     }

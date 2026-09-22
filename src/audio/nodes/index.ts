@@ -21,3 +21,6 @@ export type { PflBus } from "./pflBus";
 
 export { createSilenceDetector, createSilenceWatchdog } from "./silenceWatchdog";
 export type { SilenceDetector, SilenceWatchdog, SilenceWatchdogOptions } from "./silenceWatchdog";
+
+export { createEchoEffect } from "./echoEffect";
+export type { EchoEffect } from "./echoEffect";

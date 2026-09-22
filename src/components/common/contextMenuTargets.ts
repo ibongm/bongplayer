@@ -5,6 +5,7 @@ import { useAutomixStore } from "../../store/useAutomixStore";
 import { useSamplerStore, type ChokeGroup } from "../../store/useSamplerStore";
 import { decodeTrack } from "../../services/trackLoader";
 import { enqueueTrackWithDuration } from "../../services/automixEnqueue";
+import { analyzeTrackInBackground } from "../../services/trackAnalysis";
 import { getMasterGraph, deckEngineFor } from "../../audio/masterGraph";
 
 export interface ContextMenuItem {
@@ -33,9 +34,10 @@ function deckStoreFor(deck: DeckId) {
 
 function loadTrackToDeck(deck: DeckId, filePath: string, fileName: string): void {
   void decodeTrack(filePath, fileName)
-    .then(({ metadata, audioBuffer }) => {
+    .then(({ metadata, audioBuffer, bytes }) => {
       deckStoreFor(deck).getState().loadTrack(metadata);
       deckEngineFor(getMasterGraph(), deck).loadBuffer(audioBuffer);
+      analyzeTrackInBackground(deck, bytes, filePath);
     })
     .catch((error: unknown) => {
       console.error(`Failed to load "${fileName}" to Deck ${deck.toUpperCase()}:`, error);
