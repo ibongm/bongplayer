@@ -48,6 +48,18 @@ describe("useAutomixStore", () => {
     ]);
   });
 
+  it("enqueue defaults durationSeconds to null; setEntryDuration populates only the targeted entry", () => {
+    useAutomixStore.getState().enqueue({ filePath: "/a.mp3", fileName: "a.mp3" });
+    useAutomixStore.getState().enqueue({ filePath: "/b.mp3", fileName: "b.mp3" });
+    const [first] = useAutomixStore.getState().queue;
+    expect(first.durationSeconds).toBeNull();
+
+    useAutomixStore.getState().setEntryDuration(first.id, 123.4);
+
+    expect(useAutomixStore.getState().queue[0].durationSeconds).toBe(123.4);
+    expect(useAutomixStore.getState().queue[1].durationSeconds).toBeNull();
+  });
+
   it("clearQueue empties the queue", () => {
     useAutomixStore.getState().enqueue({ filePath: "/a.mp3", fileName: "a.mp3" });
     useAutomixStore.getState().clearQueue();

@@ -3,6 +3,7 @@ import { getAudioContext, ensureAudioContextRunning } from "./audio";
 import { openFolderDialog } from "./services/dialog";
 import { initNativeFileDropListener } from "./services/dragAndDrop";
 import { ContextMenu } from "./components/common/ContextMenu";
+import { LowerBay } from "./components/layout/LowerBay";
 
 function App() {
   const [audioState, setAudioState] = useState<AudioContextState>("suspended");
@@ -28,28 +29,33 @@ function App() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface text-textPrimary">
-      <h1 className="text-2xl font-semibold text-accent">BongPlayer</h1>
-      <p className="text-textMuted">Phase 1 scaffold — Tauri v2 + React 19 + Web Audio</p>
-
-      <div className="flex gap-4">
+    <main className="flex h-screen w-screen flex-col overflow-hidden bg-surface text-textPrimary">
+      <header className="flex shrink-0 items-center gap-4 border-b border-white/10 p-3">
+        <h1 className="text-lg font-semibold text-accent">BongPlayer</h1>
         <button
           type="button"
           onClick={handleActivateAudio}
-          className="rounded bg-surfaceRaised px-4 py-2 text-textPrimary hover:bg-accent/20"
+          className="rounded bg-surfaceRaised px-3 py-1.5 text-sm text-textPrimary hover:bg-accent/20"
         >
           Activate Audio Context ({audioState})
         </button>
         <button
           type="button"
           onClick={handleBrowseFolder}
-          className="rounded bg-surfaceRaised px-4 py-2 text-textPrimary hover:bg-accent/20"
+          className="rounded bg-surfaceRaised px-3 py-1.5 text-sm text-textPrimary hover:bg-accent/20"
         >
           Browse Folder
         </button>
+        {folderPath !== null && (
+          <span className="truncate text-sm text-textMuted">{folderPath}</span>
+        )}
+      </header>
+
+      {/* Deck/mixer/waveform rows land above this in Phase 6 — the lower bay is self-contained for now. */}
+      <div className="min-h-0 flex-1">
+        <LowerBay />
       </div>
 
-      {folderPath !== null && <p className="text-textMuted">Selected: {folderPath}</p>}
       <ContextMenu />
     </main>
   );

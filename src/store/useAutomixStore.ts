@@ -14,6 +14,8 @@ export interface AutomixQueueEntry {
   readonly id: string;
   readonly filePath: string;
   readonly fileName: string;
+  /** Populated asynchronously after enqueue (see setEntryDuration) — null until then. */
+  readonly durationSeconds: number | null;
 }
 
 export interface AutomixState {
@@ -24,7 +26,8 @@ export interface AutomixState {
   readonly transitionSeconds: number;
   readonly triggerSecondsBeforeEnd: number;
 
-  enqueue(entry: Omit<AutomixQueueEntry, "id">): void;
+  enqueue(entry: Omit<AutomixQueueEntry, "id" | "durationSeconds">): void;
+  setEntryDuration(id: string, durationSeconds: number): void;
   removeFromQueue(id: string): void;
   moveToTop(id: string): void;
   moveToBottom(id: string): void;
@@ -62,10 +65,22 @@ export const useAutomixStore = create<AutomixState>()(
       enqueue(entry) {
         set(
           (state) => ({
-            queue: [...state.queue, { ...entry, id: crypto.randomUUID() }],
+            queue: [...state.queue, { ...entry, id: crypto.randomUUID(), durationSeconds: null }],
           }),
           false,
           "enqueue",
+        );
+      },
+
+      setEntryDuration(id, durationSeconds) {
+        set(
+          (state) => ({
+            queue: state.queue.map((entry) =>
+              entry.id === id ? { ...entry, durationSeconds } : entry,
+            ),
+          }),
+          false,
+          "setEntryDuration",
         );
       },
 

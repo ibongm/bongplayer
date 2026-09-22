@@ -77,8 +77,22 @@ export const useLibraryStore = create<LibraryState>()(
   ),
 );
 
-/** Search-filters and sorts the library's files — reusable across any component that lists them. */
-export function selectFilteredFiles(state: LibraryState): readonly LibraryTrackEntry[] {
+export interface FilterableLibraryFields {
+  readonly files: readonly LibraryTrackEntry[];
+  readonly searchQuery: string;
+  readonly sortColumn: LibrarySortColumn;
+  readonly sortDirection: SortDirection;
+}
+
+/**
+ * Search-filters and sorts the library's files — reusable across any
+ * component that lists them. This returns a NEW array every call, so never
+ * pass it directly as a zustand selector (useLibraryStore(selectFilteredFiles))
+ * — that makes every render's snapshot a new reference and triggers an
+ * infinite update loop via useSyncExternalStore. Select the raw fields
+ * individually and memoize a call to this with useMemo instead.
+ */
+export function selectFilteredFiles(state: FilterableLibraryFields): readonly LibraryTrackEntry[] {
   const query = state.searchQuery.trim().toLowerCase();
   const filtered =
     query === ""

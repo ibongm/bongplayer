@@ -4,6 +4,7 @@ import { useDeckBStore } from "../../store/useDeckBStore";
 import { useAutomixStore } from "../../store/useAutomixStore";
 import { useSamplerStore, type ChokeGroup } from "../../store/useSamplerStore";
 import { loadTrackMetadata } from "../../services/trackLoader";
+import { enqueueTrackWithDuration } from "../../services/automixEnqueue";
 
 export interface ContextMenuItem {
   readonly id: string;
@@ -82,7 +83,7 @@ export function resolveContextMenuItems(target: ContextMenuTarget): ContextMenuI
         {
           id: "addToAutomix",
           label: "Add to Automix",
-          onSelect: () => useAutomixStore.getState().enqueue({ filePath, fileName }),
+          onSelect: () => enqueueTrackWithDuration(filePath, fileName),
         },
         {
           id: "showInExplorer",
