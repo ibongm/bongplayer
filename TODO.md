@@ -10,7 +10,7 @@
 | # | Phase | Status | Assigned | Notes |
 |---|-------|--------|----------|-------|
 | 1 | Project Scaffolding & Tauri v2 Shell | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
-| 2 | Modular Web Audio Graph | [ ] Pending | | |
+| 2 | Modular Web Audio Graph | [x] Complete | Claude (Sonnet 5) | Completed 2026-09-22 |
 | 2.5 | Audio Decoding & Waveform Pipeline (Risk #2) | [ ] Pending | | Waveform rendering undefined in original plan |
 | 3 | Zustand State Slices | [ ] Pending | | |
 | 3.5 | Automix Dead-Air Watchdog (Risk #4) | [ ] Pending | | Silence threshold, fallback action |
@@ -59,4 +59,4 @@ When marking a phase **complete**:
 
 ## Current Sprint Focus
 
-**Next up:** Phase 2 — Modular Web Audio Graph
+**Next up:** Phase 2.5 — Audio Decoding & Waveform Pipeline, or Phase 3 — Zustand State Slices
