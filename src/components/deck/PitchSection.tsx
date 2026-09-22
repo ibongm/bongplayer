@@ -85,6 +85,7 @@ export function PitchSection({ deck }: PitchSectionProps) {
       <button
         type="button"
         onClick={toggleKeyLock}
+        aria-pressed={keyLockEnabled}
         className={`rounded px-2 py-1 text-xs ${
           keyLockEnabled
             ? "bg-accent/30 text-accent"

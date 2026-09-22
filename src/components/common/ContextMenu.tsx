@@ -5,16 +5,25 @@ import { resolveContextMenuItems } from "./contextMenuTargets";
 
 const VIEWPORT_MARGIN_PX = 8;
 
+function focusableButtons(menuElement: HTMLElement): HTMLButtonElement[] {
+  return Array.from(
+    menuElement.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)'),
+  );
+}
+
 /**
  * Renders the app's single active context menu (AGENTS §2.2: global
- * right-click handler with boundary-aware positioning). Mount this once
- * near the app root; individual controls open a menu via
+ * right-click handler with boundary-aware positioning; Risk #7: focus
+ * management — the menu takes focus on open, Up/Down/Home/End navigate
+ * its items, and focus returns to whatever triggered it on close). Mount
+ * this once near the app root; individual controls open a menu via
  * useUIStore.getState().openContextMenu({x, y, target}).
  */
 export function ContextMenu() {
   const menu = useUIStore((state) => state.activeContextMenu);
   const closeContextMenu = useUIStore((state) => state.closeContextMenu);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
   // Suppress the native OS context menu everywhere in the app — components
@@ -28,16 +37,51 @@ export function ContextMenu() {
     return () => window.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
+  // Remember what had focus before the menu opened, and restore it on close.
+  useEffect(() => {
+    if (menu === null) {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+      return;
+    }
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, [menu]);
+
   useEffect(() => {
     if (menu === null) return;
+
     function onPointerDown(event: MouseEvent): void {
       if (menuRef.current !== null && !menuRef.current.contains(event.target as Node)) {
         closeContextMenu();
       }
     }
+
     function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") closeContextMenu();
+      if (menuRef.current === null) return;
+      if (event.key === "Escape") {
+        closeContextMenu();
+        return;
+      }
+      const buttons = focusableButtons(menuRef.current);
+      if (buttons.length === 0) return;
+      const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        buttons[(currentIndex + 1) % buttons.length].focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        buttons[(currentIndex - 1 + buttons.length) % buttons.length].focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        buttons[0].focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        buttons[buttons.length - 1].focus();
+      }
     }
+
     window.addEventListener("mousedown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     return () => {
@@ -64,6 +108,7 @@ export function ContextMenu() {
       left: Math.min(Math.max(menu.x, VIEWPORT_MARGIN_PX), maxLeft),
       top: Math.min(Math.max(menu.y, VIEWPORT_MARGIN_PX), maxTop),
     });
+    focusableButtons(menuRef.current)[0]?.focus();
   }, [menu]);
 
   if (menu === null) return null;
@@ -74,6 +119,7 @@ export function ContextMenu() {
     <div
       ref={menuRef}
       role="menu"
+      aria-label="Actions"
       style={{
         position: "fixed",
         top: coords?.top ?? -9999,
@@ -92,7 +138,7 @@ export function ContextMenu() {
             item.onSelect();
             closeContextMenu();
           }}
-          className={`block w-full px-3 py-1.5 text-left hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
+          className={`block w-full px-3 py-1.5 text-left hover:bg-accent/20 focus-visible:bg-accent/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
             item.destructive === true ? "text-red-400" : ""
           }`}
         >

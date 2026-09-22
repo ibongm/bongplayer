@@ -3,6 +3,7 @@ import { getAudioContext, ensureAudioContextRunning } from "./audio";
 import { openFolderDialog } from "./services/dialog";
 import { initNativeFileDropListener } from "./services/dragAndDrop";
 import { initMidiHotPlug } from "./services/midiAccess";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { ContextMenu } from "./components/common/ContextMenu";
 import { LowerBay } from "./components/layout/LowerBay";
 import { DeckMixerRow } from "./components/layout/DeckMixerRow";
@@ -11,6 +12,8 @@ import { ScrollingWaveforms } from "./components/waveforms/ScrollingWaveforms";
 function App() {
   const [audioState, setAudioState] = useState<AudioContextState>("suspended");
   const [folderPath, setFolderPath] = useState<string | null>(null);
+
+  useKeyboardShortcuts();
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;

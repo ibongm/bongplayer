@@ -64,6 +64,8 @@ export function ChannelStrip({ deck }: ChannelStripProps) {
             type="button"
             onClick={() => setEqKilled(deck, band, !channel.eqKilled[band])}
             title={`Kill ${EQ_LABELS[band]}`}
+            aria-label={`Kill ${EQ_LABELS[band]}`}
+            aria-pressed={channel.eqKilled[band]}
             className={`h-4 w-4 rounded-full ${channel.eqKilled[band] ? "bg-red-500" : "bg-surfaceRaised hover:bg-white/20"}`}
           />
         </div>
@@ -86,6 +88,7 @@ export function ChannelStrip({ deck }: ChannelStripProps) {
       <button
         type="button"
         onClick={() => setPfl(deck, !channel.pflEnabled)}
+        aria-pressed={channel.pflEnabled}
         className={`rounded px-2 py-0.5 text-[10px] ${
           channel.pflEnabled ? "bg-accent/30 text-accent" : "text-textMuted hover:bg-white/5"
         }`}

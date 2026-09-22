@@ -42,9 +42,11 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-1">
+      <div role="tablist" aria-label={`Deck ${deck.toUpperCase()} pad mode`} className="flex gap-1">
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "hotcue"}
           onClick={() => setMode("hotcue")}
           className={`flex-1 rounded px-2 py-1 text-xs ${
             mode === "hotcue" ? "bg-accent/30 text-accent" : "text-textMuted hover:bg-white/5"
@@ -54,6 +56,8 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "sampler"}
           onClick={() => setMode("sampler")}
           className={`flex-1 rounded px-2 py-1 text-xs ${
             mode === "sampler" ? "bg-accent/30 text-accent" : "text-textMuted hover:bg-white/5"
@@ -63,7 +67,7 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5">
+      <div role="tabpanel" className="grid grid-cols-4 gap-1.5">
         {SLOT_INDEXES.map((index) => {
           if (mode === "hotcue") {
             const cue = hotCues.find((entry) => entry.index === index);
@@ -71,6 +75,7 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
               <button
                 key={index}
                 type="button"
+                aria-label={`Hot cue ${HOT_CUE_LABELS[index]}${cue !== undefined ? " (set)" : " (empty)"}`}
                 onClick={() => activateHotCue(deck, index)}
                 onContextMenu={(event) => {
                   useUIStore.getState().openContextMenu({
@@ -105,6 +110,11 @@ export function CuePadMatrix({ deck }: CuePadMatrixProps) {
                 });
               }}
               title={slot?.label ?? undefined}
+              aria-label={
+                loaded
+                  ? `Sampler slot ${index}: ${slot?.label ?? "loaded"}`
+                  : `Sampler slot ${index}: empty`
+              }
               className={`aspect-square rounded text-xs font-semibold ${
                 loaded
                   ? "bg-cyan-500/60 text-black hover:bg-cyan-500/80"
