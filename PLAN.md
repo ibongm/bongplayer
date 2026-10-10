@@ -49,7 +49,7 @@ Dependencies: `symphonia` (decode, MPL-2.0 — confirmed in M1), resampling by t
 windowed-sinc interpolator (M1 decision instead of `rubato`: it also serves pitch, reverse and
 scratch), `rtrb` (lock-free command queue, M1). Still to confirm during spikes:
 a time-stretcher (Signalsmith Stretch or Rubber Band — chosen by listening test in M2),
-`cpal` (WASAPI output, added in M1; ASIO only if the headphone spike in M2 needs it), `midir` (MIDI),
+`cpal` (WASAPI output, added in M1; ASIO only if the headphone spike in M2 needs it), `midir` (MIDI, MIT, added in M11),
 `rusqlite` (M3), `ureq` with rustls and the Windows certificate store (radio, internet lookup;
 chosen in M6 instead of `reqwest`).
 
@@ -191,31 +191,43 @@ Three views, switched by tabs at the top: **STANDARD**, **DECKS** (larger decks)
 - [x] Radio works as a deck source and as an Automix item (app tests with a local server).
 
 ### M7 — Info panel, covers, internet lookup
-- A: Embedded art and `folder.jpg` shown with no internet; covers cached.
-- A: Internet lookup OFF by default; when ON, MusicBrainz / Cover Art Archive lookup fills missing fields once per track (tested against recorded responses).
-- A: Info panel shows year, album, genre, rating, first seen, last played, play count.
+- [x] A: Embedded art and `folder.jpg` shown with no internet; covers cached.
+- [x] A: Internet lookup OFF by default; when ON, MusicBrainz / Cover Art Archive lookup fills missing fields once per track (tested against recorded responses; iTunes and Deezer as fallback).
+- [x] A: Info panel shows year, album, genre, rating, first seen, last played, play count.
+- [ ] M: Covers look right with real album art; a live lookup with the setting on.
 
 ### M8 — Karaoke (synced lyrics only)
-- A: LRC parser (timestamps, multiple per line, offsets); local `.lrc`, embedded lyrics, LRCLIB (when internet is on).
-- A: KARAOKE tab sits above the master controls; current line highlighted; click a line to seek the active deck.
-- A: LRC button toggles the lyrics drawer.
+- [x] A: LRC parser (timestamps, multiple per line, offsets); local `.lrc`, embedded lyrics, LRCLIB (when internet is on).
+- [x] A: KARAOKE tab sits above the master controls; current line highlighted; click a line to seek the active deck.
+- [x] A: LRC button toggles the lyrics drawer.
+- [ ] M: Real `.lrc` files from the owner's collection; LRCLIB live with the setting on.
 
 ### M9 — Sampler
-- 8 pads (drop a file on a pad, file picker, choke groups, per-pad gain, saved), ducking of music while a sample plays.
-- A: Sampler never routes through deck faders; ducks −9 dB over 50 ms, restores over 250 ms.
+- [x] 8 pads (drop a file on a pad, file picker, choke groups, per-pad gain, saved), ducking of music while a sample plays (app and screen tests; the file picker itself only in the desktop app).
+- [x] A: Sampler never routes through deck faders; ducks −9 dB over 50 ms, restores over 250 ms.
+- [ ] M: Drop a sound from Explorer onto a pad; listen to the ducking at the bar.
 
 ### M10 — Settings completion & skins
 - ⚙ Settings tabs: Appearance (skins), Audio, Library, Automix defaults, Lock (PIN), Radio,
   Internet lookup, Keyboard shortcuts, MIDI.
 - Skins: Midnight Slate (default dark glass), Pioneer Stealth, Technics Silver, Day Shift; skin
   import from a file. (No VirtualDJ skin.)
-- A: Switching skin updates every colour live and persists; canvases redraw.
+- [x] Settings tabs and the four skins + skin import (screen tests).
+- [x] A: Switching skin updates every colour live and persists; canvases redraw.
+- [ ] M: The four skins look right on the bar screen.
 
 ### M11 — DDJ-400, headphone cue, effects
-- DDJ-400 MIDI profile via `midir` in Rust (jog, pitch, EQ, faders, pads, LEDs).
-- Headphone cue on the DDJ-400, per the M2 spike result.
-- Effects per deck (Flanger, Echo, Filter and similar; final set chosen then) with STR / SPD knobs.
-- Optional: Sandbox (headphone-only practice mode), only if wanted.
+- [x] DDJ-400 MIDI profile via `midir` in Rust (jog, pitch, EQ, faders, pads, LEDs) — tested with
+  the exact bytes the controller sends; message numbers from Pioneer's layout, cross-checked with
+  the Mixxx mapping (numbers only).
+- [ ] M: The DDJ-400 itself: jog feel, tempo fader direction, pads, lights, plug / unplug.
+- [x] Headphone cue: cue bus (pre-fader, CUE/MASTER blend) sent to channels 3–4 of a 4-channel card
+  (engine and output tests).
+- [ ] M: Headphones on the real DDJ-400 — depends on the M2 spike (`channel_test`): if Windows
+  only gives 2 channels, the Pioneer ASIO driver is needed (not built; decide after the spike).
+- [x] Effects per deck: **Echo, Flanger, Filter** with STR / SPD knobs (engine tests).
+- [ ] M: Listen to the effects.
+- Optional: Sandbox (headphone-only practice mode) — **not built** (optional; ask if wanted).
 
 ## 6. How this is verified
 

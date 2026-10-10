@@ -6,13 +6,21 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:50 — PLAN: M7–M11 automated tests ticked after green CI
+- **Changed:** PLAN.md now ticks the M7–M11 automated tests (CI run 38044873696 on f314dda:
+  tests and Windows installer both green) and lists each milestone's manual checks as open
+  items. Sandbox (optional in M11) is marked as not built.
+- **Tests:** CI green; locally 92 screen tests and 161 Rust tests pass.
+- **Not verified:** the manual (M) checks listed in PLAN.md.
+- **Commit:** pending
+
 ### 2026-10-10 12:25 — Top bar on narrow windows
 - **Fixed:** on a narrow window (under about 1050 px wide) the right end of the top bar —
   the engine status and ⚙ Settings — was pushed off the screen. Now the clock and view tabs
   give way first (Ctrl+1–4 still switch views) and the buttons on the right always stay
   visible. Found by looking at the app in a browser at 948 px wide.
 - **Tests:** all 92 screen tests still pass.
-- **Commit:** pending
+- **Commit:** f314dda
 
 ### 2026-10-10 12:23 — M11: Settings → MIDI, and the screen follows the DDJ-400
 - **Added:** Settings → **MIDI**: whether a DDJ-400 is connected ("No DDJ-400 found — plug
