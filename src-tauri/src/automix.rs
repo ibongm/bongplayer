@@ -12,9 +12,8 @@
 //!   track starts immediately: never dead air while there is something to play.
 
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
 
-use engine::{Command, DeckId, TrackBuffer, TransitionStyle};
+use engine::{Command, DeckId, TransitionStyle};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{err, lock, AppResult, AppState, DeckName};
@@ -81,6 +80,9 @@ pub struct Slot {
     pub deck: DeckName,
     pub uid: u64,
     pub track_id: i64,
+    /// Set when the entry is a radio station.
+    #[serde(default)]
+    pub station_id: Option<i64>,
 }
 
 #[derive(Debug, Default)]
@@ -137,19 +139,19 @@ fn pseudo_random(seed: u64) -> u64 {
 }
 
 impl AppState {
-    /// The next queue entry to play, honouring Shuffle and Loop. Returns (uid, track id).
-    fn pick_next(&self, am: &mut Automix, seed: u64) -> Option<(u64, i64)> {
+    /// The next queue entry to play, honouring Shuffle and Loop.
+    fn pick_next(&self, am: &mut Automix, seed: u64) -> Option<crate::state::QueueItem> {
         let items = lock(&self.queue).items().to_vec();
         let busy: HashSet<u64> = [am.current, am.next]
             .iter()
             .flatten()
             .map(|s| s.uid)
             .collect();
-        let candidates = |played: &HashSet<u64>| -> Vec<(u64, i64)> {
+        let candidates = |played: &HashSet<u64>| -> Vec<crate::state::QueueItem> {
             items
                 .iter()
                 .filter(|i| !played.contains(&i.uid) && !busy.contains(&i.uid))
-                .map(|i| (i.uid, i.track_id))
+                .cloned()
                 .collect()
         };
         let mut list = candidates(&am.played);
@@ -166,14 +168,19 @@ impl AppState {
         } else {
             0
         };
-        list.get(i).copied()
+        list.get(i).cloned()
     }
 
     /// Loads a queue entry on a deck (stopped). Unplayable files are marked and reported.
     fn prepare(&self, am: &mut Automix, deck: DeckName, seed: u64) -> Option<Slot> {
         for n in 0..MAX_SKIPS_PER_TICK {
-            let (uid, track_id) = self.pick_next(am, seed.wrapping_add(n as u64))?;
-            match self.load_track(deck, track_id) {
+            let item = self.pick_next(am, seed.wrapping_add(n as u64))?;
+            let (uid, track_id) = (item.uid, item.track_id);
+            let loaded = match item.station_id {
+                Some(sid) => self.load_saved_station(deck, sid),
+                None => self.load_track(deck, track_id),
+            };
+            match loaded {
                 Ok(row) => {
                     let _ = self.send(Command::Pause(deck.id()));
                     let _ = row;
@@ -181,6 +188,7 @@ impl AppState {
                         deck,
                         uid,
                         track_id,
+                        station_id: item.station_id,
                     });
                 }
                 Err(e) => {
@@ -192,25 +200,37 @@ impl AppState {
         None
     }
 
-    fn deck_buffer(&self, deck: DeckName) -> Option<Arc<TrackBuffer>> {
-        lock(&self.decks)[deck.index()]
-            .as_ref()
-            .map(|d| Arc::clone(&d.buffer))
+    fn deck_track(&self, deck: DeckName) -> Option<crate::state::DeckTrack> {
+        lock(&self.decks)[deck.index()].clone()
     }
 
-    /// Seconds left on a deck (None while the length is unknown).
+    /// Seconds left on a deck (None while the length is unknown). A station "ends" after its
+    /// play time.
     fn remaining(&self, deck: DeckName) -> Option<f64> {
-        let decks = lock(&self.decks);
-        let d = decks[deck.index()].as_ref()?;
-        let rate = f64::from(d.buffer.sample_rate().max(1));
-        let total = d.buffer.total_frames().or(d.expected_frames)? as f64 / rate;
+        let d = self.deck_track(deck)?;
+        let rate = f64::from(d.sample_rate());
         let pos = self.status.deck(deck.id()).position() / rate;
+        if let Some(l) = d.live() {
+            return Some(f64::from(l.play_minutes) * 60.0 - pos);
+        }
+        let total = d.total_frames()? as f64 / rate;
         Some(total - pos)
     }
 
     /// Whether a prepared deck has audio ready (or failed).
     fn readiness(&self, deck: DeckName) -> Result<bool, String> {
-        let Some(buf) = self.deck_buffer(deck) else {
+        let Some(d) = self.deck_track(deck) else {
+            return Err("nothing loaded".into());
+        };
+        if let Some(l) = d.live() {
+            let st = l.live.state();
+            if let Some(e) = st.strip_prefix("error: ") {
+                return Err(format!("{}: {e}", l.name));
+            }
+            let pre = engine::deck::LIVE_PREBUFFER_SECONDS * f64::from(l.live.sample_rate());
+            return Ok(l.live.written() as f64 >= pre);
+        }
+        let Some(buf) = d.file().cloned() else {
             return Err("nothing loaded".into());
         };
         if let engine::DecodeState::Failed(e) = buf.state() {
@@ -235,8 +255,11 @@ impl AppState {
     }
 
     fn finish_track(&self, am: &mut Automix, slot: Slot) {
-        if let Err(e) = lock(&self.library).mark_played(&[slot.track_id]) {
-            am.say(format!("could not count the play: {e}"));
+        // Stations (negative ids in the deck row) are not counted as track plays.
+        if slot.track_id > 0 {
+            if let Err(e) = lock(&self.library).mark_played(&[slot.track_id]) {
+                am.say(format!("could not count the play: {e}"));
+            }
         }
         if am.config.auto_remove {
             lock(&self.queue).remove(&[slot.uid]);
@@ -374,6 +397,7 @@ impl AppState {
                             deck,
                             uid: 0,
                             track_id: row,
+                            station_id: None,
                         });
                         break;
                     }
@@ -461,7 +485,7 @@ impl AppState {
         let position = am.current.map_or(0.0, |c| {
             let rate = lock(&self.decks)[c.deck.index()]
                 .as_ref()
-                .map_or(44_100.0, |d| f64::from(d.buffer.sample_rate().max(1)));
+                .map_or(44_100.0, |d| f64::from(d.sample_rate()));
             self.status.deck(c.deck.id()).position() / rate
         });
         SavedState {
@@ -513,7 +537,20 @@ impl AppState {
         let Some(cur) = saved.current else {
             return Ok(false);
         };
-        match self.load_track(cur.deck, cur.track_id) {
+        let loaded = match cur.station_id {
+            Some(sid) => self.load_saved_station(cur.deck, sid),
+            None => self.load_track(cur.deck, cur.track_id),
+        };
+        match loaded {
+            Ok(_) if cur.station_id.is_some() => {
+                // A station resumes live (there is no position to go back to).
+                self.send(Command::SetCrossfader(xf_for(cur.deck)))?;
+                self.send(Command::Play(cur.deck.id()))?;
+                let mut am = lock(&self.automix);
+                am.current = Some(cur);
+                am.transitions_seen = self.status.transitions_done();
+                Ok(true)
+            }
             Ok(_) => {
                 let rate = self.file_rate(cur.deck).unwrap_or(44_100);
                 self.send(Command::Seek {

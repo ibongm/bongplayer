@@ -6,6 +6,26 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:36 — M6: Radio in the app — stations, decks, Automix
+- **Added:** saved radio stations in the library (name, address, how many minutes Automix
+  plays it), plus two ready-made presets: Bravo (Live) and Radio Dalmacija.
+- **Added:** a station (or any typed address) can be loaded onto Deck A or B. The deck shows
+  the song title the station sends, the station name, and the connection state (connecting /
+  playing / reconnecting / the error in plain words). Its "position" is how long it has been
+  listened to.
+- **Added:** stations can be put in the Automix queue between tracks: Automix plays the station
+  for its play time, then moves on with the usual transition. Plays of stations are not counted
+  as track plays. After a crash, a station that was playing starts again live.
+- **Added:** "test station" checks an address (connects and decodes a moment of audio) before
+  saving it.
+- **Tests:** 2 new app tests pass with a local test server — a station plays on a deck (its
+  tone reaches the output; title "Local Artist - Local Song", station name, state "playing",
+  no length); a track → station (1 minute) → track sequence in Automix, moving on only after
+  the station's play time. Plus 1 stations-table test (create, update, no duplicates, checks,
+  delete). All earlier tests still pass.
+- **Not verified:** the real stations through the speakers (owner).
+- **Commit:** pending
+
 ### 2026-10-10 07:29 — M6: Secure radio streams fixed; the two old stations found and working
 - **Fixed (found by trying the real stations):** secure (https) streams would have stopped
   the radio connection with a crash, because a TLS option of the network library was not
@@ -25,7 +45,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   Radio Dalmacija → "Radio Dalmacija (audio/aacp)" decodes via both addresses; the two old
   addresses give the "this is a web page, not a stream" message. All radio tests still pass.
 - **Not verified:** listening to both stations through the speakers (owner).
-- **Commit:** pending
+- **Commit:** 7e2bc92
 
 ### 2026-10-10 07:26 — M6: Internet radio engine — live deck source, station connection, titles, reconnect
 - **Added:** decks can play a live stream. A live deck keeps only the last 30 seconds in

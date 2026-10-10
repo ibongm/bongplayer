@@ -199,6 +199,12 @@ pub struct Library {
 }
 
 impl Library {
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+}
+
+impl Library {
     /// Opens (or creates) the library database at `path`.
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(dir) = path.parent() {

@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use engine::deck::HOT_CUES;
+use engine::live::LiveBuffer;
 use engine::output::{OutputState, OutputSupervisor};
 use engine::{Command, DeckId, EngineHandle, EngineStatus, TrackBuffer};
 use library::browse::audio_files_recursive;
-use library::{Library, TrackRow};
+use library::{Library, StationRow, TrackRow};
 use serde::{Deserialize, Serialize};
 
 use crate::automix::Automix;
@@ -49,12 +50,91 @@ impl DeckName {
     }
 }
 
-/// The track on a deck, as the app knows it.
+/// A station playing on a deck.
+#[derive(Debug, Clone)]
+pub struct LiveDeck {
+    pub live: Arc<LiveBuffer>,
+    /// Saved station, if it is one (an address typed in the Radio strip has none).
+    pub station_id: Option<i64>,
+    pub name: String,
+    pub url: String,
+    /// Automix plays a station this long before moving on.
+    pub play_minutes: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum DeckSource {
+    File {
+        buffer: Arc<TrackBuffer>,
+        expected_frames: Option<u64>,
+    },
+    Live(LiveDeck),
+}
+
+/// What is on a deck, as the app knows it.
 #[derive(Debug, Clone)]
 pub struct DeckTrack {
     pub row: TrackRow,
-    pub buffer: Arc<TrackBuffer>,
-    pub expected_frames: Option<u64>,
+    pub source: DeckSource,
+}
+
+impl DeckTrack {
+    pub fn sample_rate(&self) -> u32 {
+        match &self.source {
+            DeckSource::File { buffer, .. } => buffer.sample_rate().max(1),
+            DeckSource::Live(l) => l.live.sample_rate().max(1),
+        }
+    }
+
+    pub fn file(&self) -> Option<&Arc<TrackBuffer>> {
+        match &self.source {
+            DeckSource::File { buffer, .. } => Some(buffer),
+            DeckSource::Live(_) => None,
+        }
+    }
+
+    pub fn live(&self) -> Option<&LiveDeck> {
+        match &self.source {
+            DeckSource::Live(l) => Some(l),
+            DeckSource::File { .. } => None,
+        }
+    }
+
+    /// Length in frames: decoded length, or what the container announced while decoding.
+    pub fn total_frames(&self) -> Option<u64> {
+        match &self.source {
+            DeckSource::File {
+                buffer,
+                expected_frames,
+            } => buffer.total_frames().or(*expected_frames),
+            DeckSource::Live(_) => None,
+        }
+    }
+}
+
+/// A table row standing in for a station (decks and the queue show tracks).
+pub fn station_row(id: Option<i64>, name: &str, url: &str, play_minutes: u32) -> TrackRow {
+    TrackRow {
+        id: -id.unwrap_or(0).abs() - 1,
+        path: PathBuf::from(url),
+        title: name.to_string(),
+        artist: "Internet radio".into(),
+        album: String::new(),
+        remix: String::new(),
+        genre: String::new(),
+        year: None,
+        duration_ms: Some(u64::from(play_minutes) * 60_000),
+        bpm: None,
+        key: None,
+        bpm_is_manual: false,
+        rating: 0,
+        play_count: 0,
+        last_played: None,
+        first_seen: 0,
+        has_cover: false,
+        analyzed: false,
+        missing: false,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +143,9 @@ pub struct QueueItem {
     /// Unique per queue entry (the same track may be queued twice).
     pub uid: u64,
     pub track_id: i64,
+    /// Set for a radio station entry (then `track_id` is not used).
+    #[serde(default)]
+    pub station_id: Option<i64>,
 }
 
 /// The Automix queue.
@@ -99,12 +182,30 @@ impl Queue {
                 QueueItem {
                     uid: self.next_uid,
                     track_id,
+                    station_id: None,
                 }
             })
             .collect();
         let uids = new.iter().map(|i| i.uid).collect();
         self.items.splice(at..at, new);
         uids
+    }
+
+    /// Inserts a radio station before `before` (or at the end). Returns its uid.
+    pub fn add_station(&mut self, station_id: i64, before: Option<u64>) -> u64 {
+        let at = before
+            .and_then(|b| self.index_of(b))
+            .unwrap_or(self.items.len());
+        self.next_uid += 1;
+        self.items.insert(
+            at,
+            QueueItem {
+                uid: self.next_uid,
+                track_id: 0,
+                station_id: Some(station_id),
+            },
+        );
+        self.next_uid
     }
 
     /// Moves entries (keeping their order) to just before `before`, or to the end.
@@ -154,6 +255,8 @@ pub struct AppState {
     pub output: Mutex<Option<OutputSupervisor>>,
     pub output_state: Option<Arc<OutputState>>,
     pub decks: Mutex<[Option<DeckTrack>; 2]>,
+    /// Running radio connections, per deck.
+    pub radios: Mutex<[Option<radio::Station>; 2]>,
     pub queue: Mutex<Queue>,
     pub waves: Arc<WaveCache>,
     pub automix: Mutex<Automix>,
@@ -185,6 +288,7 @@ impl AppState {
             output: Mutex::new(output),
             output_state,
             decks: Mutex::new([None, None]),
+            radios: Mutex::new([None, None]),
             queue: Mutex::new(Queue::default()),
             waves: Arc::new(WaveCache::default()),
             automix: Mutex::new(Automix::default()),
@@ -248,9 +352,12 @@ impl AppState {
         self.waves.start(row.id, Arc::clone(&buffer));
         lock(&self.decks)[deck.index()] = Some(DeckTrack {
             row: row.clone(),
-            buffer,
-            expected_frames: decoding.expected_frames,
+            source: DeckSource::File {
+                buffer,
+                expected_frames: decoding.expected_frames,
+            },
         });
+        self.stop_radio(deck);
         // The decoding thread keeps running on its own; dropping the handle detaches it.
         drop(decoding);
         Ok(row)
@@ -265,11 +372,56 @@ impl AppState {
         self.load_track(deck, row.id)
     }
 
-    /// Sample rate of the file on a deck (positions are converted between seconds and frames).
+    /// Sample rate of what is on a deck (positions are converted between seconds and frames).
     pub fn file_rate(&self, deck: DeckName) -> Option<u32> {
         lock(&self.decks)[deck.index()]
             .as_ref()
-            .map(|d| d.buffer.sample_rate())
+            .map(DeckTrack::sample_rate)
+    }
+
+    /// Stops a deck's radio connection (if any), outside other locks.
+    fn stop_radio(&self, deck: DeckName) {
+        let old = lock(&self.radios)[deck.index()].take();
+        drop(old);
+    }
+
+    /// Puts a radio station on a deck (stopped; press play). The connection starts at once.
+    pub fn load_station(
+        &self,
+        deck: DeckName,
+        station_id: Option<i64>,
+        name: &str,
+        url: &str,
+        play_minutes: u32,
+    ) -> AppResult<TrackRow> {
+        let u = url.trim();
+        if !(u.starts_with("http://") || u.starts_with("https://")) {
+            return Err("a station address must start with http:// or https://".into());
+        }
+        let live = Arc::new(LiveBuffer::new(48_000));
+        let station = radio::Station::start(u, Arc::clone(&live));
+        lock(&self.engine)
+            .load_live(deck.id(), Arc::clone(&live))
+            .map_err(err)?;
+        let row = station_row(station_id, name, u, play_minutes);
+        self.stop_radio(deck);
+        lock(&self.radios)[deck.index()] = Some(station);
+        lock(&self.decks)[deck.index()] = Some(DeckTrack {
+            row: row.clone(),
+            source: DeckSource::Live(LiveDeck {
+                live,
+                station_id,
+                name: name.to_string(),
+                url: u.to_string(),
+                play_minutes,
+            }),
+        });
+        Ok(row)
+    }
+
+    pub fn load_saved_station(&self, deck: DeckName, station_id: i64) -> AppResult<TrackRow> {
+        let st: StationRow = lock(&self.library).station(station_id).map_err(err)?;
+        self.load_station(deck, Some(st.id), &st.name, &st.url, st.play_minutes)
     }
 
     /// Sets a hot cue at the current position and saves it with the track.
@@ -352,10 +504,15 @@ impl AppState {
         let lib = lock(&self.library);
         Ok(items
             .into_iter()
-            .filter_map(|i| {
-                lib.track(i.track_id)
+            .filter_map(|i| match i.station_id {
+                Some(sid) => lib.station(sid).ok().map(|st| QueueEntry {
+                    uid: i.uid,
+                    track: station_row(Some(st.id), &st.name, &st.url, st.play_minutes),
+                }),
+                None => lib
+                    .track(i.track_id)
                     .ok()
-                    .map(|track| QueueEntry { uid: i.uid, track })
+                    .map(|track| QueueEntry { uid: i.uid, track }),
             })
             .collect())
     }

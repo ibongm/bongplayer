@@ -90,7 +90,7 @@ impl Rig {
         let decks = lock(&self.state.decks);
         let total = decks[deck.index()]
             .as_ref()
-            .and_then(|d| d.buffer.total_frames())
+            .and_then(|d| d.total_frames())
             .unwrap_or(0) as f64;
         (total - st.position()) / f64::from(rate)
     }

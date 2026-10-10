@@ -42,6 +42,10 @@ pub struct DeckSnapshot {
     pub decode_error: Option<String>,
     /// Hot cue positions in seconds.
     pub cues: Vec<Option<f64>>,
+    /// A radio station is loaded (no length, seek, loops or cues).
+    pub live: bool,
+    /// Radio connection state: "connecting", "playing", "reconnecting in 2 s (…)", "error: …".
+    pub radio_state: Option<String>,
     /// Main cue (CUE / CUP) in seconds.
     pub main_cue: f64,
     pub key_shift: f64,
@@ -96,27 +100,39 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
     let deck = |id: DeckId| -> DeckSnapshot {
         let s = state.status.deck(id);
         let slot = decks[id as usize].as_ref();
-        let rate = slot.map_or(44_100.0, |d| f64::from(d.buffer.sample_rate()));
-        let frames_total = slot.and_then(|d| d.buffer.total_frames().or(d.expected_frames));
-        let decoded = slot.map_or(0.0, |d| {
-            if d.buffer.is_done() {
+        let rate = slot.map_or(44_100.0, |d| f64::from(d.sample_rate()));
+        let frames_total = slot.and_then(|d| d.total_frames());
+        let live = slot.and_then(|d| d.live().cloned());
+        let file = slot.and_then(|d| d.file().cloned().map(|b| (b, d.total_frames())));
+        let decoded = slot.map_or(0.0, |_| {
+            let Some((buffer, expected)) = &file else {
+                return 1.0;
+            };
+            if buffer.is_done() {
                 1.0
             } else {
-                d.expected_frames.filter(|&e| e > 0).map_or(0.0, |e| {
-                    (d.buffer.frames_ready() as f64 / e as f64).min(0.99)
-                })
+                expected
+                    .filter(|&e| e > 0)
+                    .map_or(0.0, |e| (buffer.frames_ready() as f64 / e as f64).min(0.99))
             }
         });
         let wave = slot.and_then(|d| state.waves.get(d.row.id));
-        let decode_error = slot.and_then(|d| match d.buffer.state() {
-            engine::DecodeState::Failed(msg) => Some(msg),
-            _ => match &wave {
-                // The waveform task gives up when decoding stalls: show that, not a spinner.
-                Some(WaveState::Failed(msg)) => Some(msg.clone()),
-                _ => None,
+        let decode_error = match (&file, &live) {
+            (Some((buffer, _)), _) => match buffer.state() {
+                engine::DecodeState::Failed(msg) => Some(msg),
+                _ => match &wave {
+                    // The waveform task gives up when decoding stalls: show that, not a spinner.
+                    Some(WaveState::Failed(msg)) => Some(msg.clone()),
+                    _ => None,
+                },
             },
-        });
-        let waveform = match (&wave, slot.is_some()) {
+            (None, Some(l)) => {
+                let st = l.live.state();
+                st.strip_prefix("error: ").map(str::to_string)
+            }
+            _ => None,
+        };
+        let waveform = match (&wave, file.is_some()) {
             (_, false) => "none",
             (Some(WaveState::Ready(_)), _) => "ready",
             (Some(WaveState::Failed(_)), _) => "failed",
@@ -131,8 +147,16 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
         DeckSnapshot {
             loaded: slot.is_some() && s.is_loaded(),
             track_id: slot.map(|d| d.row.id),
-            title: slot.map(|d| d.row.title.clone()).unwrap_or_default(),
-            artist: slot.map(|d| d.row.artist.clone()).unwrap_or_default(),
+            title: match &live {
+                Some(l) if !l.live.title().is_empty() => l.live.title(),
+                _ => slot.map(|d| d.row.title.clone()).unwrap_or_default(),
+            },
+            artist: match &live {
+                Some(l) => l.name.clone(),
+                None => slot.map(|d| d.row.artist.clone()).unwrap_or_default(),
+            },
+            live: live.is_some(),
+            radio_state: live.as_ref().map(|l| l.live.state()),
             path: slot.and_then(|d| d.row.path.to_str().map(str::to_string)),
             position: s.position() / rate,
             duration: frames_total.map(|f| f as f64 / rate),

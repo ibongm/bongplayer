@@ -190,6 +190,7 @@ version = "0.1.0"
 dependencies = [
  "engine",
  "library",
+ "radio",
  "serde",
  "serde_json",
  "sha2",

@@ -128,6 +128,8 @@ pub struct Deck {
     loop_in: Option<f64>,
     loop_out: Option<f64>,
     loop_active: bool,
+    /// Live stream: frames actually played since loading (the "position" of a station).
+    live_played: f64,
 }
 
 impl std::fmt::Debug for Deck {
@@ -172,6 +174,7 @@ impl Deck {
             loop_in: None,
             loop_out: None,
             loop_active: false,
+            live_played: 0.0,
         };
         deck.update_rate_constants();
         deck
@@ -212,6 +215,7 @@ impl Deck {
         self.loop_in = None;
         self.loop_out = None;
         self.loop_active = false;
+        self.live_played = 0.0;
         let old = self.track.replace(track);
         self.update_rate_constants();
         self.jump_to(0.0);
@@ -262,6 +266,10 @@ impl Deck {
 
     /// Audible position in track frames.
     pub fn position(&self) -> f64 {
+        if self.is_live() {
+            // A station has no fixed position: report how long it has been listened to.
+            return self.live_played;
+        }
         if !(self.stretch_active && !self.needs_preroll) {
             return self.head;
         }
@@ -611,6 +619,7 @@ impl Deck {
             frame[1] = r;
             // The stream rate is only known once connected, so it is read here.
             self.head += step;
+            self.live_played += step;
         }
     }
 

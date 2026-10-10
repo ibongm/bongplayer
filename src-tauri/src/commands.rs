@@ -7,7 +7,9 @@ use std::sync::Arc;
 use engine::eq::Band;
 use engine::Command;
 use library::browse::{self, DirListing, Drive, FolderEntry};
-use library::{AnalysisReport, CrateInfo, CrateKind, ImportReport, ScanStats, TrackRow};
+use library::{
+    AnalysisReport, CrateInfo, CrateKind, ImportReport, ScanStats, StationRow, TrackRow,
+};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -763,6 +765,118 @@ pub async fn duck_depth(state: St<'_>, db: f32) -> AppResult<()> {
             .map_err(err)?;
         let on = lock(&s.automix).duck_on;
         s.send(engine::Command::SetDuck { on, depth_db: d })
+    })
+    .await
+}
+
+// ----- radio -----
+
+/// Stations offered ready-made. Addresses checked on 2026-10-10 (see CHANGELOG).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Preset {
+    pub name: &'static str,
+    pub url: &'static str,
+}
+
+pub const PRESETS: [Preset; 2] = [
+    Preset {
+        name: "Bravo (Live)",
+        url: "https://relay1.social3.hr/radio/8310/radio.mp3",
+    },
+    Preset {
+        name: "Radio Dalmacija",
+        url: "http://shoutcast.pondi.hr:8000/listen.pls",
+    },
+];
+
+#[tauri::command]
+pub fn radio_presets() -> Vec<Preset> {
+    PRESETS.to_vec()
+}
+
+#[tauri::command]
+pub async fn stations_list(state: St<'_>) -> AppResult<Vec<StationRow>> {
+    blocking(&state, |s| lock(&s.library).stations().map_err(err)).await
+}
+
+#[tauri::command]
+pub async fn station_save(
+    state: St<'_>,
+    id: Option<i64>,
+    name: String,
+    url: String,
+    play_minutes: u32,
+) -> AppResult<i64> {
+    blocking(&state, move |s| {
+        lock(&s.library)
+            .save_station(id, &name, &url, play_minutes)
+            .map_err(err)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn station_delete(state: St<'_>, id: i64) -> AppResult<()> {
+    blocking(&state, move |s| {
+        lock(&s.library).delete_station(id).map_err(err)?;
+        let mut q = lock(&s.queue);
+        let gone: Vec<u64> = q
+            .items()
+            .iter()
+            .filter(|i| i.station_id == Some(id))
+            .map(|i| i.uid)
+            .collect();
+        q.remove(&gone);
+        Ok(())
+    })
+    .await
+}
+
+/// Connects to an address and decodes a moment of audio (plays nothing). Returns the
+/// station's name / format, or the problem in plain words.
+#[tauri::command]
+pub async fn station_probe(url: String) -> AppResult<String> {
+    tauri::async_runtime::spawn_blocking(move || radio::probe(&url).map_err(err))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+pub async fn deck_load_station(state: St<'_>, deck: DeckName, id: i64) -> AppResult<TrackRow> {
+    state.lock_check(Action::Music)?;
+    blocking(&state, move |s| s.load_saved_station(deck, id)).await
+}
+
+/// Loads an address typed in the Radio strip (not saved).
+#[tauri::command]
+pub async fn deck_load_url(
+    state: St<'_>,
+    deck: DeckName,
+    url: String,
+    name: Option<String>,
+) -> AppResult<TrackRow> {
+    state.lock_check(Action::Music)?;
+    blocking(&state, move |s| {
+        let name = name
+            .filter(|n| !n.trim().is_empty())
+            .unwrap_or_else(|| url.clone());
+        s.load_station(deck, None, &name, &url, 60)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn queue_add_station(
+    state: St<'_>,
+    id: i64,
+    before: Option<u64>,
+) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
+    blocking(&state, move |s| {
+        lock(&s.library).station(id).map_err(err)?;
+        lock(&s.queue).add_station(id, before);
+        s.queue_entries()
     })
     .await
 }
