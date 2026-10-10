@@ -6,6 +6,18 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:11 — M1: 3-band EQ with kills, trim and channel fader
+- **Added:** each mixer channel now has trim (input gain, up to +12 dB), a DJ-style 3-band EQ
+  and a channel fader. The EQ is an "isolator": bass / mid / treble split at 300 Hz and 4 kHz,
+  each band from fully off up to +6 dB, plus a kill switch per band. All controls glide over a
+  few milliseconds so turning them never clicks.
+- **Tests:** 6 EQ tests pass — with all bands at 0 dB the sound is unchanged from 20 Hz to
+  20 kHz (largest deviation 0.03 dB, limit 0.5 dB); ±6 dB per band measures exactly ±6.000 dB at
+  the band centre; kills reach −112 dB (bass), −85 dB (mid), −92 dB (treble), limit −60 dB;
+  trim and fader levels are correct.
+- **Not verified:** how the EQ sounds; the knob feel comes with the mixer screen in M4.
+- **Commit:** pending
+
 ### 2026-10-10 05:10 — M1: Deck playback, seek and hot cues
 - **Added:** the deck: load a track, play, pause, seek, and 8 hot cues (set, jump, clear). It
   plays any file on any sound-card rate: a 44.1 kHz song on a 48 kHz output is converted with a
@@ -18,7 +30,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   (96,000 frames); seek and hot-cue jumps land exactly at the same rate and within 1 ms when
   resampling. Plus 3 small internal tests.
 - **Not verified:** none (no sound is played yet).
-- **Commit:** pending
+- **Commit:** d314957
 
 ### 2026-10-10 05:05 — M1: Engine reads MP3, FLAC, WAV, M4A and OGG
 - **Added:** the audio engine (`crates/engine`, pure Rust, no app window yet). It opens a music

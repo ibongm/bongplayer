@@ -5,8 +5,10 @@
 
 pub mod deck;
 pub mod decode;
+pub mod eq;
 mod mp4_edit;
 pub mod resample;
+pub mod strip;
 pub mod track;
 
 pub use decode::{decode_to_end, start_decoding, DecodeError, DecodingTrack};
