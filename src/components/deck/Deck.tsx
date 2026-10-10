@@ -7,6 +7,7 @@ import { notify, refresh, run, status } from "../../state/app";
 import { useStore } from "../../state/store";
 import { context2d, cssColor, ensureWaveform, livePosition, mixer, onFrame, send, waveforms } from "../../state/ui";
 import { Fader } from "../controls/Fader";
+import { Cover } from "../Cover";
 import { formatTime } from "../TrackTable";
 import { useLiveText } from "./useLiveText";
 
@@ -558,6 +559,7 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
   const artist = useDeck(index, (d) => d.artist, "");
   const loaded = useDeck(index, (d) => d.loaded, false);
   const live = useDeck(index, (d) => d.live, false);
+  const trackId = useDeck(index, (d) => d.trackId, null);
   const platter = large ? 200 : 140;
   return (
     <section
@@ -568,6 +570,7 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
     >
       <header className="flex items-baseline gap-2">
         <span className="text-[24px] font-black leading-none text-accent">{deck}</span>
+        {loaded && !live && <Cover trackId={trackId} size={36} />}
         <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-semibold" data-testid={`deck-${deck}-title`}>
             {loaded ? title || "Untitled" : "Drop a track here"}

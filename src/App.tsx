@@ -17,7 +17,7 @@ import { backend } from "./ipc/backend";
 import type { AppInfo, DeckName, IpcResult } from "./ipc/types";
 import { openSource, run, status } from "./state/app";
 import { useStore } from "./state/store";
-import { send, settingsOpen, view } from "./state/ui";
+import { dockTab, send, settingsOpen, view } from "./state/ui";
 import { Titlebar } from "./Titlebar";
 
 interface AppProps {
@@ -106,6 +106,11 @@ function useGlobalShortcuts(): void {
       if (ctrl && (e.key === "r" || e.key === "R")) {
         e.preventDefault();
         radioOpen.set(!radioOpen.get());
+        return;
+      }
+      if (ctrl && (e.key === "i" || e.key === "I")) {
+        e.preventDefault();
+        dockTab.set(dockTab.get() === "info" ? "automix" : "info");
         return;
       }
       if (ctrl && e.key === ",") {

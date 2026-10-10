@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { backend } from "../ipc/backend";
 import { AutomixPanel } from "./AutomixPanel";
 import { Explorer } from "./Explorer";
+import { InfoPanel } from "./InfoPanel";
+import { useStore } from "../state/store";
+import { dockTab, type DockTab } from "../state/ui";
 import { TrackTable } from "./TrackTable";
 
 const SETTING = "dock.widths";
@@ -39,6 +42,44 @@ function Splitter({ label, onMove }: { label: string; onMove: (dx: number) => vo
         e.preventDefault();
       }}
     />
+  );
+}
+
+function RightColumn(): ReactNode {
+  const tab = useStore(dockTab, (t) => t);
+  const tabs: { id: DockTab; label: string }[] = [
+    { id: "automix", label: "Automix" },
+    { id: "info", label: "Info" },
+  ];
+  return (
+    <>
+      <div role="tablist" aria-label="Automix or track info" className="flex shrink-0 border-b border-border">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            title={`${t.label} (Ctrl+I switches; ← / → when focused)`}
+            className={`flex-1 py-1.5 text-[12px] font-semibold uppercase tracking-wide ${
+              tab === t.id ? "border-b-2 border-accent text-text" : "text-muted hover:text-text"
+            }`}
+            onClick={() => {
+              dockTab.set(t.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                dockTab.set(tab === "automix" ? "info" : "automix");
+                e.preventDefault();
+              }
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "automix" ? <AutomixPanel /> : <InfoPanel />}
+    </>
   );
 }
 
@@ -96,7 +137,7 @@ export function Dock(): ReactNode {
         }}
       />
       <div className="flex min-h-0 shrink-0 flex-col bg-surface/60" style={{ width: widths.right }}>
-        <AutomixPanel />
+        <RightColumn />
       </div>
     </div>
   );

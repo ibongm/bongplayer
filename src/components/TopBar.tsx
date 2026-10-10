@@ -32,6 +32,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Q", "Add selected tracks to Automix"],
   ["Ctrl+,", "Settings"],
   ["Ctrl+R", "Radio strip"],
+  ["Ctrl+I", "Automix / Info tab"],
 ];
 
 function Clock(): ReactNode {

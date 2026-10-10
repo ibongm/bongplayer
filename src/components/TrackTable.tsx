@@ -33,11 +33,13 @@ import {
 import { useStore } from "../state/store";
 import { trackMenu } from "../state/trackActions";
 import { openMenu, type MenuItem } from "./ContextMenu";
+import { Cover } from "./Cover";
 
 export const ROW_HEIGHT = 28;
 const OVERSCAN = 8;
 
 export type ColumnId =
+  | "cover"
   | "title"
   | "artist"
   | "remix"
@@ -57,6 +59,8 @@ interface Column {
   width: string;
   align?: "right";
   value: (t: TrackRow) => string;
+  /** Draws the cell instead of the text value. */
+  render?: (t: TrackRow) => ReactNode;
 }
 
 export function formatTime(seconds: number | null): string {
@@ -74,6 +78,13 @@ function formatDate(unix: number | null): string {
 }
 
 export const COLUMNS: Column[] = [
+  {
+    id: "cover",
+    label: "Cover",
+    width: "30px",
+    value: () => "",
+    render: (t) => (t.hasCover ? <Cover trackId={t.id} size={24} /> : null),
+  },
   { id: "title", label: "Title", width: "minmax(90px,3fr)", value: (t) => t.title },
   { id: "artist", label: "Artist", width: "minmax(70px,2fr)", value: (t) => t.artist },
   { id: "remix", label: "Remix", width: "minmax(50px,1.2fr)", value: (t) => t.remix },
@@ -101,6 +112,7 @@ export const COLUMNS: Column[] = [
 ];
 
 export const DEFAULT_COLUMNS: ColumnId[] = [
+  "cover",
   "title",
   "artist",
   "remix",
@@ -388,8 +400,8 @@ export function TrackTable(): ReactNode {
         onContextMenu={headerMenu}
       >
         {cols.map((c) => (
-          <div key={c.id} role="columnheader" className={`truncate py-1.5 ${c.align === "right" ? "pr-2 text-right" : "pr-2"}`}>
-            {c.label}
+          <div key={c.id} role="columnheader" aria-label={c.label} className={`truncate py-1.5 ${c.align === "right" ? "pr-2 text-right" : "pr-2"}`}>
+            {c.render ? "" : c.label}
           </div>
         ))}
       </div>
@@ -444,7 +456,7 @@ export function TrackTable(): ReactNode {
               >
                 {cols.map((c) => (
                   <div key={c.id} role="gridcell" className={`truncate pr-2 ${c.align === "right" ? "text-right tabular-nums" : ""}`}>
-                    {c.value(row.track)}
+                    {c.render ? c.render(row.track) : c.value(row.track)}
                   </div>
                 ))}
                 <div className="absolute top-0.5 right-1 hidden gap-0.5 group-hover:flex" onPointerDown={(e) => { e.stopPropagation(); }}>

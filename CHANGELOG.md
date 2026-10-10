@@ -6,6 +6,24 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:38 — M7: Info tab, covers on screen, Settings → Internet
+- **Added:** an **Info** tab beside Automix in the dock (Ctrl+I switches). It shows the
+  selected track's cover (large), title, artist, remix, rating, album, year, genre, length,
+  BPM, key, play count, last played, first seen and the file. Click a star to rate (click the
+  same star again to clear).
+- **Added:** cover thumbnails as the first column of the track table (right-click the header
+  to hide it), and a small cover next to the title on each deck.
+- **Added:** Settings → **Internet** with one switch, OFF by default. It says plainly that,
+  when on, the artist and title (never file names or folders) go to MusicBrainz / Cover Art
+  Archive, then iTunes and Deezer. With it on, the Info tab has a "Look up online" button;
+  with it off, the Info tab says so and links to the setting.
+- **Tests:** 5 new screen tests pass (64 in total): Info shows every field; rating saves and
+  clears; Ctrl+I switches tabs; lookup is off by default (no button, nothing sent, the
+  backend refuses); after switching it on, a lookup fills the empty album; the table asks
+  only for covers of tracks that have one, and only small ones.
+- **Not verified:** how the covers look with real album art (owner).
+- **Commit:** pending
+
 ### 2026-10-10 11:33 — M7: App — cover pictures and the internet lookup switch
 - **Added:** the app can now hand cover pictures (small or large) to the screen, and look a
   track up online on request. Covers are kept in the app's data folder (`covers`).
@@ -15,7 +33,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   and a lookup request answers "Internet lookup is off — switch it on in Settings → Internet".
 - **Tests:** new app test passes: lookup is off by default and only on when switched on.
 - **Not verified:** a real lookup from the running app (owner, with the setting on).
-- **Commit:** pending
+- **Commit:** cfc9e83
 
 ### 2026-10-10 11:28 — M7: Covers and the optional internet lookup (library side)
 - **Added:** covers are found without internet: the picture embedded in the file (the front

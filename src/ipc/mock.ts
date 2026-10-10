@@ -163,8 +163,9 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     const [artist, title] = name.includes(" - ")
       ? [name.split(" - ").slice(-2)[0] ?? "", name.split(" - ").slice(-1)[0] ?? name]
       : ["", name];
+    const id = nextId++;
     const row: TrackRow = {
-      id: nextId++,
+      id,
       path,
       title: f?.title ?? title,
       artist: f?.artist ?? artist,
@@ -180,7 +181,8 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       playCount: 0,
       lastPlayed: null,
       firstSeen: 1_700_000_000,
-      hasCover: false,
+      // Every third track has a cover (see trackCover).
+      hasCover: id % 3 === 0,
       analyzed: false,
       missing: false,
     };

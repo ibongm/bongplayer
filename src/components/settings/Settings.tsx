@@ -12,7 +12,7 @@ import type { AutomixConfig, LockInfo, OutputDevices } from "../../ipc/types";
 import { notify, status } from "../../state/app";
 import { setAutomixConfig, STYLES } from "../AutomixCockpit";
 import { useStore } from "../../state/store";
-import { send, settingsOpen } from "../../state/ui";
+import { internetLookup, loadInternetLookup, send, setInternetLookup, settingsOpen } from "../../state/ui";
 
 const CEILING_KEY = "audio.limiter_ceiling";
 
@@ -368,12 +368,51 @@ function LockTab(): ReactNode {
   );
 }
 
+function InternetTab(): ReactNode {
+  const on = useStore(internetLookup, (v) => v);
+  useEffect(() => {
+    void loadInternetLookup();
+  }, []);
+  return (
+    <div className="flex flex-col gap-3">
+      <section>
+        <h3 className="mb-1 text-[13px] font-semibold">Internet lookup</h3>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            checked={on === true}
+            disabled={on === null}
+            onChange={(e) => {
+              const next = e.target.checked;
+              void setInternetLookup(next).then((ok) => {
+                if (!ok) notify("error", "Could not save the internet lookup setting");
+              });
+            }}
+          />
+          Look up missing covers, album, year and genre online
+        </label>
+        <p className="mt-2 text-[12px] text-muted">
+          Off by default. Covers are always taken from the file or its folder (folder.jpg) first — that
+          needs no internet.
+        </p>
+        <p className="mt-2 text-[12px] text-muted">
+          When on, the <strong>artist and title</strong> of a track (never the file name or folder) are sent
+          to MusicBrainz and Cover Art Archive, and if they have no clean match, to Apple iTunes Search and
+          Deezer. Each track is looked up once, the first time it is loaded on a deck or when you press
+          “Look up online” in the Info tab. Only empty fields are filled.
+        </p>
+      </section>
+    </div>
+  );
+}
+
 // More sections join this list as their features arrive (M6–M11).
 type TabId = string;
 const TABS: { id: TabId; label: string; panel: () => ReactNode }[] = [
   { id: "audio", label: "Audio", panel: () => <AudioTab /> },
   { id: "automix", label: "Automix", panel: () => <AutomixTab /> },
   { id: "lock", label: "Lock", panel: () => <LockTab /> },
+  { id: "internet", label: "Internet", panel: () => <InternetTab /> },
 ];
 
 export function SettingsDialog(): ReactNode {

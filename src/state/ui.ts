@@ -12,6 +12,25 @@ export type View = "standard" | "decks" | "library" | "day";
 export const view = createStore<View>("standard");
 
 export const settingsOpen = createStore(false);
+/** Right column of the dock: the Automix queue or the selected track's info. */
+export type DockTab = "automix" | "info";
+export const dockTab = createStore<DockTab>("automix");
+
+/** Settings key of the internet lookup switch ("1" = on). OFF unless the owner turns it on. */
+export const INTERNET_LOOKUP_KEY = "internet.lookup";
+/** The switch as last read (null = not read yet). */
+export const internetLookup = createStore<boolean | null>(null);
+
+export async function loadInternetLookup(): Promise<void> {
+  const r = await backend().settingGet(INTERNET_LOOKUP_KEY);
+  internetLookup.set(r.ok && r.value === "1");
+}
+
+export async function setInternetLookup(on: boolean): Promise<boolean> {
+  const r = await backend().settingSet(INTERNET_LOOKUP_KEY, on ? "1" : "0");
+  if (r.ok) internetLookup.set(on);
+  return r.ok;
+}
 
 // ----- mixer -----
 // The engine does not report knob positions back, so the UI keeps them and sends changes.

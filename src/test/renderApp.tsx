@@ -10,7 +10,8 @@ import { browser, crates, notices, queue, status } from "../state/app";
 import { emptySelection } from "../state/selection";
 import { explorer } from "../state/explorer";
 import { menuStore } from "../components/ContextMenu";
-import { channelDefaults, mixer, settingsOpen, view } from "../state/ui";
+import { clearCoverCache } from "../components/Cover";
+import { channelDefaults, dockTab, internetLookup, mixer, settingsOpen, view } from "../state/ui";
 
 export type Mock = ReturnType<typeof createMockBackend>;
 
@@ -32,6 +33,9 @@ function resetStores(): void {
   explorer.set({ drives: [], places: [], nodes: {}, error: null });
   view.set("standard");
   settingsOpen.set(false);
+  dockTab.set("automix");
+  internetLookup.set(null);
+  clearCoverCache();
   mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
 }
 
