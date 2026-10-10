@@ -15,7 +15,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   engine tests plus the app's checks, and built the installer.
 - **Not verified:** owner checks with the `play_file` test program — real music through the
   speakers, and unplugging/replugging the output device while it plays.
-- **Commit:** pending
+- **Commit:** 01f7397
 
 ### 2026-10-10 05:21 — M1: Realtime engine, sound-card output and recovery when the device is lost
 - **Added:** the complete engine: two decks → mixer → sound card. The app sends it commands
