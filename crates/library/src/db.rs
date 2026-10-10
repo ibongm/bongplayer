@@ -194,8 +194,22 @@ fn row_from(r: &Row<'_>) -> rusqlite::Result<TrackRow> {
     row_from_offset(r, 0)
 }
 
+/// Adds a column to an existing table if it is not there yet (database upgrades).
+fn add_column(conn: &Connection, table: &str, col: &str, decl: &str) -> Result<()> {
+    let exists: bool = conn
+        .prepare(&format!(
+            "SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?1"
+        ))?
+        .exists([col])?;
+    if !exists {
+        conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {col} {decl}"))?;
+    }
+    Ok(())
+}
+
 pub struct Library {
     conn: Connection,
+    pub(crate) covers_dir: Option<PathBuf>,
 }
 
 impl Library {
@@ -223,7 +237,12 @@ impl Library {
 
     fn init(conn: Connection) -> Result<Self> {
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        // Columns added after the first version: add them to older databases.
+        add_column(&conn, "tracks", "lookup_done", "INTEGER NOT NULL DEFAULT 0")?;
+        Ok(Self {
+            conn,
+            covers_dir: None,
+        })
     }
 
     // ----- tracks -----

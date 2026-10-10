@@ -6,6 +6,30 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:28 — M7: Covers and the optional internet lookup (library side)
+- **Added:** covers are found without internet: the picture embedded in the file (the front
+  cover when marked), otherwise a picture in the track's folder (folder.jpg, cover.jpg,
+  front.jpg … or the only picture there). A small one (64 px, for the table) and a large one
+  (400 px, for the Info panel) are made once and kept on disk.
+- **Added:** internet lookup (it stays OFF until switched on in Settings — see the next
+  entries). It asks MusicBrainz first, but only accepts a clean studio album (no live,
+  karaoke or demo versions, no compilations, about as long as the file), then takes the
+  original year and the genre from MusicBrainz and the cover from Cover Art Archive. If
+  MusicBrainz has no clean match it asks iTunes, then Deezer. It fills only empty album /
+  year / genre fields and only adds a cover when the track has none; each track is looked up
+  once. Only artist and title are sent; MusicBrainz is asked at most once per second.
+- **Decision:** libraries `image` (thumbnails) and `serde_json` (reading the answers), both
+  MIT/Apache-2.0; `ureq` (already used for radio) for the requests.
+- **Tests:** 5 new tests pass, using answers recorded from the real services on 2026-10-10
+  (no internet during the test): embedded art found and cached (still shown after the audio
+  file is gone); folder.jpg used (aspect kept); "Come Together" → Abbey Road, 1969 (the
+  original year, not the 2019 remaster), Rock; "Smells Like Teen Spirit" — MusicBrainz only
+  offers live / karaoke / compilation versions, so iTunes answers: Nevermind, 1991, Rock;
+  only empty fields are filled, the second lookup sends nothing, and no file names or paths
+  are sent. Real album art is not stored in the repository; tests use plain-colour pictures.
+- **Not verified:** lookups against the live services from the app (owner, with the setting on).
+- **Commit:** pending
+
 ### 2026-10-10 11:22 — M2–M6: Automated tests ticked in the plan after green CI
 - **Changed:** `PLAN.md` — 20 automated M2–M6 acceptance tests ticked, plus "radio works as a
   deck source and as an Automix item". Not ticked: the BPM/key regression list (needs the
@@ -16,7 +40,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Tests:** GitHub Actions run 38028252446 on `m2-m11` passed both jobs (checks + installer):
   59 screen tests and every Rust test, including the analysis benchmark on GitHub's 4-core PC.
 - **Not verified:** the manual checks listed in PLAN.md for M2–M6 (owner).
-- **Commit:** pending
+- **Commit:** 262023b
 
 ### 2026-10-10 07:39 — M6: Radio strip and live decks on screen
 - **Added:** RADIO button (Ctrl+R) opens the Radio strip under the top bar: choose a saved
