@@ -167,6 +167,12 @@ export interface LookupOutcome {
   source: string | null;
 }
 
+export interface LibraryInfo {
+  /** Where the library database is stored. */
+  database: string;
+  tracks: number;
+}
+
 export interface PadInfo {
   index: number;
   /** File name without extension ("" when empty). */

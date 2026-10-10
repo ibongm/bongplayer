@@ -36,8 +36,10 @@ function Lane({ index }: { index: 0 | 1 }): ReactNode {
         const toX = (t: number): number => w / 2 + (t - pos) * pxPerSec;
         if (d && wave) {
           if (d.loopIn !== null && d.loopOut !== null) {
-            ctx.fillStyle = d.loopActive ? "rgba(56,189,248,0.18)" : "rgba(139,151,168,0.12)";
+            ctx.globalAlpha = d.loopActive ? 0.18 : 0.12;
+            ctx.fillStyle = d.loopActive ? cssColor("--color-accent") : cssColor("--color-text-muted");
             ctx.fillRect(toX(d.loopIn), 0, (d.loopOut - d.loopIn) * pxPerSec, h);
+            ctx.globalAlpha = 1;
           }
           const low = cssColor("--color-accent-2");
           const midC = cssColor("--color-accent");

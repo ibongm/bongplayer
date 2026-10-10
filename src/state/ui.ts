@@ -196,6 +196,11 @@ export function onFrame(draw: Draw): () => void {
 
 let colorCache: { at: number; values: Map<string, string> } = { at: 0, values: new Map() };
 
+/** Forgets the cached colours (a skin was switched; canvases redraw with the new ones). */
+export function resetColorCache(): void {
+  colorCache = { at: 0, values: new Map() };
+}
+
 /** Reads a CSS colour variable (cached for a second, so skins apply live). */
 export function cssColor(name: string): string {
   const now = performance.now();

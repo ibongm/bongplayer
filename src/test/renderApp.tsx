@@ -13,6 +13,8 @@ import { menuStore } from "../components/ContextMenu";
 import { clearCoverCache } from "../components/Cover";
 import { clearLyricsCache, lyricsDrawer } from "../state/lyrics";
 import { pads, samplerOpen } from "../state/sampler";
+import { DEFAULT_COLUMNS, tableColumns } from "../components/TrackTable";
+import { DEFAULT_SKIN, applySkin, skins } from "../state/skins";
 import { channelDefaults, dockTab, internetLookup, mixer, settingsOpen, view } from "../state/ui";
 
 export type Mock = ReturnType<typeof createMockBackend>;
@@ -42,6 +44,9 @@ function resetStores(): void {
   lyricsDrawer.set(false);
   samplerOpen.set(false);
   pads.set([]);
+  tableColumns.set(DEFAULT_COLUMNS);
+  skins.set({ current: DEFAULT_SKIN, custom: [] });
+  applySkin(skins.get());
   mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
 }
 

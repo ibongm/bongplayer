@@ -30,7 +30,7 @@ import {
   selectAll,
   selectedInOrder,
 } from "../state/selection";
-import { useStore } from "../state/store";
+import { createStore, useStore } from "../state/store";
 import { trackMenu } from "../state/trackActions";
 import { openMenu, type MenuItem } from "./ContextMenu";
 import { Cover } from "./Cover";
@@ -125,6 +125,31 @@ export const DEFAULT_COLUMNS: ColumnId[] = [
 
 const COLUMNS_SETTING = "table.columns";
 
+/** Columns shown in the track table (header right-click or Settings → Library). */
+export const tableColumns = createStore<ColumnId[]>(DEFAULT_COLUMNS);
+
+export async function loadTableColumns(): Promise<void> {
+  const r = await backend().settingGet(COLUMNS_SETTING);
+  if (!r.ok || r.value === null) return;
+  try {
+    const parsed: unknown = JSON.parse(r.value);
+    if (Array.isArray(parsed) && parsed.every(isColumnId) && parsed.length > 0) tableColumns.set(parsed);
+  } catch {
+    // A broken setting falls back to the default columns.
+  }
+}
+
+/** Shows or hides a column (at least one stays) and saves the layout. */
+export function toggleColumn(id: ColumnId): void {
+  const columns = tableColumns.get();
+  const next = columns.includes(id)
+    ? columns.filter((c) => c !== id)
+    : COLUMNS.map((c) => c.id).filter((c) => c === id || columns.includes(c));
+  if (next.length === 0) return;
+  tableColumns.set(next);
+  void backend().settingSet(COLUMNS_SETTING, JSON.stringify(next));
+}
+
 function isColumnId(v: unknown): v is ColumnId {
   return typeof v === "string" && COLUMNS.some((c) => c.id === v);
 }
@@ -142,26 +167,14 @@ export function TrackTable(): ReactNode {
   const rows = useMemo(() => visibleRows(state), [state]);
   const order = useMemo(() => rows.map((r) => r.key), [rows]);
   const selection = state.selection;
-  const [columns, setColumns] = useState<ColumnId[]>(DEFAULT_COLUMNS);
+  const columns = useStore(tableColumns, (c) => c);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewHeight, setViewHeight] = useState(600);
 
   // Column layout is a saved setting.
   useEffect(() => {
-    void backend()
-      .settingGet(COLUMNS_SETTING)
-      .then((r) => {
-        if (!r.ok || r.value === null) return;
-        try {
-          const parsed: unknown = JSON.parse(r.value);
-          if (Array.isArray(parsed) && parsed.every(isColumnId) && parsed.length > 0) {
-            setColumns(parsed);
-          }
-        } catch {
-          // A broken setting falls back to the default columns.
-        }
-      });
+    void loadTableColumns();
   }, []);
 
   useEffect(() => {
@@ -211,13 +224,6 @@ export function TrackTable(): ReactNode {
     const focused = focusedRow() ?? sel[0];
     if (!focused || sel.length === 0) return;
     openMenu(x, y, trackMenu({ selected: sel, focused }));
-  };
-
-  const toggleColumn = (id: ColumnId): void => {
-    const next = columns.includes(id) ? columns.filter((c) => c !== id) : COLUMNS.map((c) => c.id).filter((c) => c === id || columns.includes(c));
-    if (next.length === 0) return;
-    setColumns(next);
-    void backend().settingSet(COLUMNS_SETTING, JSON.stringify(next));
   };
 
   const headerMenu = (e: React.MouseEvent): void => {

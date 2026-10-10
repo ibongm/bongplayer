@@ -809,6 +809,57 @@ pub async fn lookup_track(
     .await
 }
 
+// ----- settings: library facts, skin files -----
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryInfo {
+    pub database: String,
+    pub tracks: u64,
+}
+
+#[tauri::command]
+pub async fn library_info(state: St<'_>) -> AppResult<LibraryInfo> {
+    blocking(&state, |s| {
+        Ok(LibraryInfo {
+            database: s.db_path.display().to_string(),
+            tracks: lock(&s.library).track_count().map_err(err)?,
+        })
+    })
+    .await
+}
+
+/// Largest skin file accepted.
+const SKIN_FILE_MAX: u64 = 64 * 1024;
+
+/// Reads a skin file chosen by the user (.json, at most 64 KB). The screen checks its contents.
+pub fn read_skin_file(path: &std::path::Path) -> AppResult<String> {
+    let is_json = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("json"));
+    if !is_json {
+        return Err("a skin file must be a .json file".into());
+    }
+    let size = std::fs::metadata(path)
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))?
+        .len();
+    if size > SKIN_FILE_MAX {
+        return Err(format!(
+            "the skin file is too large ({} KB; at most 64 KB)",
+            size / 1024
+        ));
+    }
+    std::fs::read_to_string(path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+}
+
+#[tauri::command]
+pub async fn skin_file_read(path: String) -> AppResult<String> {
+    tauri::async_runtime::spawn_blocking(move || read_skin_file(&PathBuf::from(path)))
+        .await
+        .map_err(err)?
+}
+
 // ----- sampler -----
 
 #[tauri::command]

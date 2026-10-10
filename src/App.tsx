@@ -22,6 +22,7 @@ import { lyricsDrawer } from "./state/lyrics";
 import { LyricsDrawer } from "./components/Lyrics";
 import { SamplerStrip } from "./components/SamplerStrip";
 import { samplerOpen, triggerPad } from "./state/sampler";
+import { loadSkin } from "./state/skins";
 import { Titlebar } from "./Titlebar";
 
 interface AppProps {
@@ -195,6 +196,9 @@ function MainArea(): ReactNode {
 export function App({ appInfo }: AppProps): ReactNode {
   const [error, setError] = useState<string | null>(null);
   useGlobalShortcuts();
+  useEffect(() => {
+    void loadSkin();
+  }, []);
 
   return (
     <div className="flex h-full w-full flex-col">

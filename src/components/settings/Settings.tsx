@@ -1,4 +1,5 @@
-// ⚙ Settings window. Tabs are added as their features arrive; M4 brings the Audio tab.
+// ⚙ Settings window: Appearance, Audio, Library, Automix, Lock, Radio, Internet, Keyboard
+// shortcuts (MIDI arrives with the DDJ-400 in M11).
 
 import { isTauri } from "@tauri-apps/api/core";
 import {
@@ -11,6 +12,7 @@ import { backend } from "../../ipc/backend";
 import type { AutomixConfig, LockInfo, OutputDevices } from "../../ipc/types";
 import { notify, status } from "../../state/app";
 import { setAutomixConfig, STYLES } from "../AutomixCockpit";
+import { AppearanceTab, LibraryTab, RadioTab, ShortcutsTab } from "./MoreTabs";
 import { useStore } from "../../state/store";
 import { internetLookup, loadInternetLookup, send, setInternetLookup, settingsOpen } from "../../state/ui";
 
@@ -410,13 +412,17 @@ function InternetTab(): ReactNode {
   );
 }
 
-// More sections join this list as their features arrive (M6–M11).
+// The MIDI tab joins with the DDJ-400 support (M11).
 type TabId = string;
 const TABS: { id: TabId; label: string; panel: () => ReactNode }[] = [
+  { id: "appearance", label: "Appearance", panel: () => <AppearanceTab /> },
   { id: "audio", label: "Audio", panel: () => <AudioTab /> },
+  { id: "library", label: "Library", panel: () => <LibraryTab /> },
   { id: "automix", label: "Automix", panel: () => <AutomixTab /> },
   { id: "lock", label: "Lock", panel: () => <LockTab /> },
+  { id: "radio", label: "Radio", panel: () => <RadioTab /> },
   { id: "internet", label: "Internet", panel: () => <InternetTab /> },
+  { id: "shortcuts", label: "Keyboard shortcuts", panel: () => <ShortcutsTab /> },
 ];
 
 export function SettingsDialog(): ReactNode {
@@ -425,7 +431,7 @@ export function SettingsDialog(): ReactNode {
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[55] flex items-center justify-center bg-overlay"
       onKeyDown={(e) => {
         if (e.key === "Escape") settingsOpen.set(false);
       }}

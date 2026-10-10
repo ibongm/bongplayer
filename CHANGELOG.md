@@ -6,6 +6,33 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:04 — M10: Skins and the rest of Settings
+- **Added:** four skins in Settings → **Appearance**: Midnight Slate (the default dark glass),
+  Pioneer Stealth (black, orange highlights), Technics Silver (light silver) and Day Shift
+  (bright, for daylight). Switching changes every colour at once — buttons, panels, meters
+  and waveforms — and is remembered after a restart.
+- **Added:** **Import skin file…**: a small .json file (shown as an example in the tab) that
+  changes some colours of a built-in skin. Only plain colour values are accepted; unknown
+  names or anything that is not a colour is refused with the reason. Imported skins can be
+  deleted again.
+- **Added:** Settings tabs **Library** (how many tracks, where the library is stored, which
+  columns the track table shows), **Radio** (saved stations with delete; adding and testing
+  stays in the Radio strip) and **Keyboard shortcuts** (every key). The tabs now are:
+  Appearance, Audio, Library, Automix, Lock, Radio, Internet, Keyboard shortcuts. MIDI comes
+  with the DDJ-400 support (M11).
+- **Fixed:** the loop shading in the waveforms and the dark veil behind dialogs used fixed
+  colours; they now follow the skin.
+- **Security:** a skin file is only read if it is a .json file of at most 64 KB, and only
+  colour values from it reach the page.
+- **Tests:** 8 new screen tests and 1 app test pass (83 screen tests in total): every tab is
+  there; switching to Day Shift changes the page and is read back at start-up; importing a
+  skin switches to it and the waveform colour cache picks up the new accent; deleting it goes
+  back to the default; a bad file and injection attempts are refused; Library tab columns
+  change the table; Radio tab deletes after asking; shortcuts listed; .css and too-large
+  files are refused by the app.
+- **Not verified:** how the four skins look on the bar screen (owner).
+- **Commit:** pending
+
 ### 2026-10-10 11:58 — M9: Sampler strip and deck pads
 - **Added:** a **SAMPLER** button in the top bar (Ctrl+P) opens the Sampler strip under it:
   8 pads with a name, a volume knob each and a "Stop all" button. Drop a sound on a pad from
@@ -22,7 +49,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   a .txt file is refused visibly; choke group, volume and clear from the pad menu; deck pads
   switch to the sampler and play it.
 - **Not verified:** real drag & drop from Explorer onto a pad, and the sound (owner).
-- **Commit:** pending
+- **Commit:** 2b8f78b
 
 ### 2026-10-10 11:53 — M9: App — sampler pads saved and restored
 - **Added:** the app can put a sound file on a pad, set its volume and choke group, play and

@@ -167,6 +167,8 @@ pub fn run() {
             lookup_track,
             track_lyrics,
             sampler_pads,
+            library_info,
+            skin_file_read,
             sampler_load,
             sampler_clear,
             sampler_configure,

@@ -169,6 +169,10 @@ export function isLookupOutcome(v: unknown): v is import("./types").LookupOutcom
   );
 }
 
+export function isLibraryInfo(v: unknown): v is import("./types").LibraryInfo {
+  return isRecord(v) && isString(v.database) && isNumber(v.tracks);
+}
+
 function isPadInfo(v: unknown): v is import("./types").PadInfo {
   return (
     isRecord(v) &&

@@ -98,8 +98,10 @@ function Overview({ deck, index }: { deck: DeckName; index: 0 | 1 }): ReactNode 
         }
         // Loop region, cues, playhead.
         if (d.loopIn !== null && d.loopOut !== null) {
-          ctx.fillStyle = d.loopActive ? "rgba(56,189,248,0.25)" : "rgba(139,151,168,0.2)";
+          ctx.globalAlpha = d.loopActive ? 0.25 : 0.2;
+          ctx.fillStyle = d.loopActive ? cssColor("--color-accent") : cssColor("--color-text-muted");
           ctx.fillRect((d.loopIn / duration) * w, 0, ((d.loopOut - d.loopIn) / duration) * w, h);
+          ctx.globalAlpha = 1;
         }
         ctx.fillStyle = cssColor("--color-accent-2");
         d.cues.forEach((c) => {

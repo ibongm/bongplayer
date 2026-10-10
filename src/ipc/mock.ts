@@ -24,6 +24,8 @@ const fail = <T>(error: string): IpcResult<T> => ({ ok: false, error });
 const resolve = <T>(r: IpcResult<T>): Promise<IpcResult<T>> => Promise.resolve(r);
 
 export interface MockOptions {
+  /** Skin files the stand-in can "read": path → text. */
+  skinFiles?: Record<string, string>;
   /** Tracks per music folder (default 40). */
   tracksPerFolder?: number;
   /** Extra folder with this many tracks, for large-library checks. */
@@ -949,6 +951,13 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         (c) => c.charCodeAt(0),
       );
       return resolve(ok(png.buffer));
+    },
+    libraryInfo: () => resolve(ok({ database: "C:\\Users\\dj\\AppData\\Roaming\\BongPlayer\\library.db", tracks: rows.size })),
+    skinFileRead: (path) => {
+      calls.push(["skinFileRead", path]);
+      const text = options.skinFiles?.[path];
+      if (!/\.json$/i.test(path)) return resolve(fail("a skin file must be a .json file"));
+      return resolve(text === undefined ? fail(`cannot read ${path}: not found`) : ok(text));
     },
     samplerPads: () => resolve(ok(padList())),
     samplerLoad: (pad, path) => {
