@@ -156,8 +156,9 @@ impl Smoothed {
         self.target
     }
 
+    /// Advances one sample and returns the current value.
     #[inline]
-    pub fn next(&mut self) -> f32 {
+    pub fn step(&mut self) -> f32 {
         let d = self.target - self.current;
         if d.abs() < 1e-7 {
             self.current = self.target;
@@ -239,9 +240,9 @@ impl ThreeBandEq {
     /// Processes interleaved stereo in place. Realtime-safe.
     pub fn process(&mut self, buf: &mut [f32]) {
         for frame in buf.as_chunks_mut::<2>().0 {
-            let gl = f64::from(self.gains[0].next());
-            let gm = f64::from(self.gains[1].next());
-            let gh = f64::from(self.gains[2].next());
+            let gl = f64::from(self.gains[0].step());
+            let gm = f64::from(self.gains[1].step());
+            let gh = f64::from(self.gains[2].step());
             for (s, ch) in frame.iter_mut().zip(self.channels.iter_mut()) {
                 let (l, m, h) = ch.split(f64::from(*s));
                 *s = (gl * l + gm * m + gh * h) as f32;

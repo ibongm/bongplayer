@@ -6,6 +6,8 @@
 pub mod deck;
 pub mod decode;
 pub mod eq;
+pub mod limiter;
+pub mod mixer;
 mod mp4_edit;
 pub mod resample;
 pub mod strip;

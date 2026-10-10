@@ -6,6 +6,23 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:13 — M1: Crossfader, master volume and limiter
+- **Added:** the crossfader blends deck A and B at constant loudness: in the middle both play
+  at −3 dB, so a blend does not dip or bump in volume. Master volume up to +6 dB.
+- **Added:** a limiter on the master output. Nothing ever goes above the ceiling (default
+  −1 dBFS), whatever is played and however loud the faders are set, so the bar's amplifier never
+  gets a clipped signal. It looks 1.5 ms ahead so the volume is already down before a peak
+  arrives.
+- **Fixed:** a code-style warning left in the previous commit (an internal method name); no
+  change in behaviour.
+- **Tests:** 5 tests pass — crossfader gains satisfy A² + B² = 1 at 101 positions (within
+  0.000001) and measured output power follows it; the limiter keeps +12 dB sine, square, noise,
+  a silence-to-full-blast jump and +18 dB single-sample spikes at or below the ceiling (−1, −0.1
+  and −6 dB tested; peaks measured −1.0001 / −0.1001 / −6.0001 dBFS), including with master at
+  +6 dB; and it does not squash normal loud signals.
+- **Not verified:** how the limiter sounds on real music (owner listening check later, M5 soak test).
+- **Commit:** pending
+
 ### 2026-10-10 05:11 — M1: 3-band EQ with kills, trim and channel fader
 - **Added:** each mixer channel now has trim (input gain, up to +12 dB), a DJ-style 3-band EQ
   and a channel fader. The EQ is an "isolator": bass / mid / treble split at 300 Hz and 4 kHz,
@@ -16,7 +33,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   the band centre; kills reach −112 dB (bass), −85 dB (mid), −92 dB (treble), limit −60 dB;
   trim and fader levels are correct.
 - **Not verified:** how the EQ sounds; the knob feel comes with the mixer screen in M4.
-- **Commit:** pending
+- **Commit:** f3aa036
 
 ### 2026-10-10 05:10 — M1: Deck playback, seek and hot cues
 - **Added:** the deck: load a track, play, pause, seek, and 8 hot cues (set, jump, clear). It

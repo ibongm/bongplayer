@@ -59,13 +59,13 @@ impl ChannelStrip {
     /// Processes interleaved stereo in place. Realtime-safe.
     pub fn process(&mut self, buf: &mut [f32]) {
         for frame in buf.as_chunks_mut::<2>().0 {
-            let t = self.trim.next();
+            let t = self.trim.step();
             frame[0] *= t;
             frame[1] *= t;
         }
         self.eq.process(buf);
         for frame in buf.as_chunks_mut::<2>().0 {
-            let f = self.fader.next();
+            let f = self.fader.step();
             frame[0] *= f;
             frame[1] *= f;
         }
