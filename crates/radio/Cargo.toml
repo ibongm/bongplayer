@@ -1,0 +1,12 @@
+[package]
+name = "radio"
+description = "BongPlayer internet radio: resolves station URLs (.pls, .m3u, redirects), reads ICY titles, decodes the stream into a live deck buffer, reconnects."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+engine = { path = "../engine" }
+symphonia = { version = "0.6", features = ["mp3", "aac", "isomp4"] }
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "_ring", "platform-verifier"] }

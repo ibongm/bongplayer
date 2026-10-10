@@ -1,0 +1,16 @@
+[package]
+name = "engine"
+description = "BongPlayer audio engine: decode, decks, mixer, output. No Tauri dependency."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+symphonia = { version = "0.6", features = ["mp3", "aac", "isomp4"] }
+cpal = "0.18"
+rtrb = "0.4"
+stretch = { path = "../stretch" }
+
+[dev-dependencies]
+hound = "3.5"

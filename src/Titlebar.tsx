@@ -1,14 +1,16 @@
-import { use } from "react";
+import { use, type ReactNode } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { AppInfo, IpcResult } from "./ipc";
-import { errorMessage } from "./ipc";
+import type { AppInfo, IpcResult } from "./ipc/types";
+import { errorMessage } from "./ipc/backend";
 
 type WindowAction = "minimize" | "toggleMaximize" | "close";
 
 interface TitlebarProps {
   appInfo: Promise<IpcResult<AppInfo>>;
   onError: (message: string) => void;
+  /** Top bar contents between the name and the window buttons. */
+  children?: ReactNode;
 }
 
 const controls: { action: WindowAction; label: string; tooltip: string; glyph: string }[] = [
@@ -17,7 +19,7 @@ const controls: { action: WindowAction; label: string; tooltip: string; glyph: s
   { action: "close", label: "Close", tooltip: "Close BongPlayer (Alt+F4)", glyph: "✕" },
 ];
 
-export function Titlebar({ appInfo, onError }: TitlebarProps) {
+export function Titlebar({ appInfo, onError, children }: TitlebarProps) {
   const info = use(appInfo);
   const inDesktopApp = isTauri();
 
@@ -33,7 +35,7 @@ export function Titlebar({ appInfo, onError }: TitlebarProps) {
   return (
     <header
       data-tauri-drag-region
-      className="flex h-9 shrink-0 items-center border-b border-border bg-surface pl-3"
+      className="flex h-10 shrink-0 items-center border-b border-border bg-surface pl-3"
     >
       <img src="/logo.svg" alt="" className="pointer-events-none h-5 w-5" />
       <span data-tauri-drag-region className="ml-2 text-[13px] font-semibold tracking-wide">
@@ -42,7 +44,7 @@ export function Titlebar({ appInfo, onError }: TitlebarProps) {
       <span data-tauri-drag-region className="ml-2 text-[11px] text-muted" data-testid="app-version">
         {info.ok ? `v${info.value.version}` : "version unknown"}
       </span>
-      <div data-tauri-drag-region className="h-full flex-1" />
+      {children ?? <div data-tauri-drag-region className="h-full flex-1" />}
       <div className="flex h-full">
         {controls.map((c) => (
           <button

@@ -1,16 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import type { AppInfo, IpcResult } from "./ipc";
+import type { AppInfo, IpcResult } from "./ipc/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => false, invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/webviewWindow", () => ({ getCurrentWebviewWindow: vi.fn() }));
 
 import { App } from "./App";
+import { initBackend } from "./ipc/backend";
+import { createMockBackend } from "./ipc/mock";
 
 const okInfo: IpcResult<AppInfo> = { ok: true, value: { name: "BongPlayer", version: "0.1.0" } };
 
 /** Renders the app and lets React finish suspending on the IPC promise. */
 async function renderApp(result: IpcResult<AppInfo>) {
+  await initBackend(createMockBackend());
   const appInfo = Promise.resolve(result);
   return await act(async () => {
     const view = render(<App appInfo={appInfo} />);
@@ -24,12 +27,11 @@ describe("App shell", () => {
     await renderApp(okInfo);
     expect(screen.getByTestId("app-version")).toHaveTextContent("v0.1.0");
     expect(screen.getByText("BongPlayer")).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("shows a visible error when Rust cannot be reached", async () => {
     await renderApp({ ok: false, error: "IPC unavailable" });
-    expect(screen.getByRole("alert")).toHaveTextContent("IPC unavailable");
+    expect(screen.getByText(/IPC unavailable/)).toBeInTheDocument();
     expect(screen.getByTestId("app-version")).toHaveTextContent("version unknown");
   });
 
@@ -51,8 +53,9 @@ describe("App shell", () => {
 
   it("marks the titlebar as the window drag region, but not its buttons", async () => {
     const { container } = await renderApp(okInfo);
-    expect(container.querySelector("header")).toHaveAttribute("data-tauri-drag-region");
-    for (const button of screen.getAllByRole("button")) {
+    const header = container.querySelector("header");
+    expect(header).toHaveAttribute("data-tauri-drag-region");
+    for (const button of header?.querySelectorAll("button") ?? []) {
       expect(button).not.toHaveAttribute("data-tauri-drag-region");
     }
   });

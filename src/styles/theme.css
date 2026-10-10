@@ -1,7 +1,10 @@
 /*
- * Skins are data: every colour in the app comes from these variables.
- * Default skin: Midnight Slate (dark glass).
+ * Skins are data: every colour in the app comes from these variables. A skin is chosen with
+ * <html data-theme="…"> (Settings → Appearance); an imported skin sets some of them inline
+ * on top of the skin it is based on.
  */
+
+/* Midnight Slate (default): dark glass. */
 :root,
 :root[data-theme="midnight-slate"] {
   --color-bg: #0b0f15;
@@ -15,4 +18,53 @@
   --color-danger: #f43f5e;
   --color-danger-text: #ffffff;
   --color-focus: #38bdf8;
+  --color-overlay: rgb(0 0 0 / 0.5);
+}
+
+/* Pioneer Stealth: black hardware, orange highlights. */
+:root[data-theme="pioneer-stealth"] {
+  --color-bg: #050505;
+  --color-surface: #0f0f10;
+  --color-surface-raised: #1b1b1d;
+  --color-border: #2c2c30;
+  --color-text: #f2f2f2;
+  --color-text-muted: #9a9aa0;
+  --color-accent: #ff6a1a;
+  --color-accent-2: #2fd3ff;
+  --color-danger: #ff2d55;
+  --color-danger-text: #ffffff;
+  --color-focus: #ff6a1a;
+  --color-overlay: rgb(0 0 0 / 0.6);
+}
+
+/* Technics Silver: brushed silver, dark text. */
+:root[data-theme="technics-silver"] {
+  --color-bg: #c3c7cd;
+  --color-surface: #dadde1;
+  --color-surface-raised: #eceef0;
+  --color-border: #9da3ab;
+  --color-text: #14171b;
+  --color-text-muted: #474e58;
+  --color-accent: #0a62a8;
+  --color-accent-2: #b03a0a;
+  --color-danger: #b4101c;
+  --color-danger-text: #ffffff;
+  --color-focus: #0a62a8;
+  --color-overlay: rgb(20 23 27 / 0.4);
+}
+
+/* Day Shift: bright, for daylight in the bar. */
+:root[data-theme="day-shift"] {
+  --color-bg: #f3f5f8;
+  --color-surface: #ffffff;
+  --color-surface-raised: #e8ecf1;
+  --color-border: #c9d0d9;
+  --color-text: #101826;
+  --color-text-muted: #4f5968;
+  --color-accent: #0f766e;
+  --color-accent-2: #7c3aed;
+  --color-danger: #c81e1e;
+  --color-danger-text: #ffffff;
+  --color-focus: #0f766e;
+  --color-overlay: rgb(16 24 38 / 0.35);
 }
