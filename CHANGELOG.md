@@ -6,6 +6,24 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:05 — M1: Engine reads MP3, FLAC, WAV, M4A and OGG
+- **Added:** the audio engine (`crates/engine`, pure Rust, no app window yet). It opens a music
+  file and decodes it in the background into memory as 16-bit stereo (≈ 11 MB per minute), so
+  playback can start before decoding has finished. Mono files play on both sides; files with
+  more than two channels are mixed down to stereo.
+- **Added:** a missing, unsupported or damaged file gives a clear error message instead of a
+  crash. A file that breaks halfway keeps the part that was decoded.
+- **Added:** M4A files are trimmed to their real length: the silent lead-in and tail that AAC
+  encoders add (≈ 23 ms) are removed, as already happens for MP3 and OGG. This matters for
+  seamless Automix transitions later.
+- **Decision:** decoding library `symphonia` added. Licence **MPL-2.0**: free to use unchanged in
+  BongPlayer; only changes to symphonia's own files would have to be published (we make none).
+- **Tests:** 9 decode tests pass — every format gives the exact length (2.000 s, off by 0 frames)
+  and the right sample rate and volume; missing and damaged files give errors, not crashes.
+  Plus 8 small internal tests.
+- **Not verified:** none (no sound is played yet).
+- **Commit:** pending
+
 ### 2026-10-10 05:05 — M1: Test audio files for the engine
 - **Added:** short test tones (2 seconds, 1 kHz, half volume, stereo) in every format the
   engine must read: WAV and FLAC at 44.1 and 48 kHz, MP3, M4A (AAC) and OGG (Vorbis), plus a
@@ -15,7 +33,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   folder on this PC. ffmpeg is only for making test files; it is not part of BongPlayer.
 - **Tests:** none yet (the files are used by the decoder tests in the next entry).
 - **Not verified:** none.
-- **Commit:** pending
+- **Commit:** 68d69e3
 
 ### 2026-10-10 04:46 — M0: Manual check passed — M0 complete
 - **Changed:** `PLAN.md` — the manual M0 test is ticked. The owner installed the app from the
