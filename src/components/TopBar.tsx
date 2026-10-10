@@ -118,59 +118,65 @@ export function TopBar(): ReactNode {
   const current = useStore(view, (v) => v);
   return (
     <div data-tauri-drag-region className="flex h-full min-w-0 flex-1 items-center gap-3 px-3">
-      <Clock />
-      <div role="tablist" aria-label="Views" className="flex gap-1">
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            role="tab"
-            aria-selected={current === v.id}
-            title={`${v.label} view (${v.key})`}
-            className={`rounded px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${
-              current === v.id ? "bg-accent text-bg" : "text-muted hover:bg-surface-raised hover:text-text"
-            }`}
-            onClick={() => {
-              view.set(v.id);
-            }}
-          >
-            {v.label}
-          </button>
-        ))}
+      {/* On a narrow window the clock and view tabs give way first (Ctrl+1–4 still switch
+          views); the buttons on the right always stay visible. */}
+      <div data-tauri-drag-region className="flex min-w-0 shrink items-center gap-3 overflow-x-auto [scrollbar-width:none]">
+        <Clock />
+        <div role="tablist" aria-label="Views" className="flex shrink-0 gap-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={current === v.id}
+              title={`${v.label} view (${v.key})`}
+              className={`rounded px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${
+                current === v.id ? "bg-accent text-bg" : "text-muted hover:bg-surface-raised hover:text-text"
+              }`}
+              onClick={() => {
+                view.set(v.id);
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div data-tauri-drag-region className="flex-1" />
-      <button
-        type="button"
-        title="Keyboard shortcuts"
-        aria-label="Keyboard shortcuts"
-        className="rounded px-2 py-0.5 text-[13px] text-muted hover:bg-surface-raised hover:text-text"
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          openMenu(
-            r.left,
-            r.bottom + 4,
-            SHORTCUTS.map(([key, what], i) => ({ id: `k${i}`, label: what, shortcut: key })),
-          );
-        }}
-      >
-        ⌨
-      </button>
-      <SamplerToggle />
-      <RadioToggle />
-      <DuckButton />
-      <LockButton />
-      <StatusPill />
-      <button
-        type="button"
-        title="Settings (Ctrl+,)"
-        aria-label="Settings"
-        className="rounded px-2 py-0.5 text-[16px] text-muted hover:bg-surface-raised hover:text-text"
-        onClick={() => {
-          settingsOpen.set(true);
-        }}
-      >
-        ⚙
-      </button>
+      <div data-tauri-drag-region className="min-w-0 flex-1" />
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          title="Keyboard shortcuts"
+          aria-label="Keyboard shortcuts"
+          className="rounded px-2 py-0.5 text-[13px] text-muted hover:bg-surface-raised hover:text-text"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            openMenu(
+              r.left,
+              r.bottom + 4,
+              SHORTCUTS.map(([key, what], i) => ({ id: `k${i}`, label: what, shortcut: key })),
+            );
+          }}
+        >
+          ⌨
+        </button>
+        <SamplerToggle />
+        <RadioToggle />
+        <DuckButton />
+        <LockButton />
+        <StatusPill />
+        <button
+          type="button"
+          title="Settings (Ctrl+,)"
+          aria-label="Settings"
+          className="rounded px-2 py-0.5 text-[16px] text-muted hover:bg-surface-raised hover:text-text"
+          onClick={() => {
+            settingsOpen.set(true);
+          }}
+        >
+          ⚙
+        </button>
+      </div>
     </div>
   );
 }

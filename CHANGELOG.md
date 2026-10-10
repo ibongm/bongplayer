@@ -6,6 +6,14 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:25 — Top bar on narrow windows
+- **Fixed:** on a narrow window (under about 1050 px wide) the right end of the top bar —
+  the engine status and ⚙ Settings — was pushed off the screen. Now the clock and view tabs
+  give way first (Ctrl+1–4 still switch views) and the buttons on the right always stay
+  visible. Found by looking at the app in a browser at 948 px wide.
+- **Tests:** all 92 screen tests still pass.
+- **Commit:** pending
+
 ### 2026-10-10 12:23 — M11: Settings → MIDI, and the screen follows the DDJ-400
 - **Added:** Settings → **MIDI**: whether a DDJ-400 is connected ("No DDJ-400 found — plug
   it in…", "Connected: DDJ-400"), a switch to stop using it, the MIDI devices Windows lists,
@@ -18,7 +26,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   back to the engine; browse + LOAD; refusals shown; the MIDI tab with and without a
   controller, and switching it off.
 - **Not verified:** with the real DDJ-400 (owner).
-- **Commit:** pending
+- **Commit:** 20ebf27
 
 ### 2026-10-10 12:20 — M11: Pioneer DDJ-400 support (MIDI)
 - **Added:** the DDJ-400 is found automatically whenever it is plugged in (checked every 2
