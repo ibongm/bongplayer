@@ -167,6 +167,19 @@ export interface LookupOutcome {
   source: string | null;
 }
 
+export interface PadInfo {
+  index: number;
+  /** File name without extension ("" when empty). */
+  name: string;
+  path: string | null;
+  gainDb: number;
+  /** 0 = none, 1–4. */
+  choke: number;
+  seconds: number | null;
+  /** Why the saved sound could not be loaded. */
+  error: string | null;
+}
+
 export interface LyricLine {
   /** Start in milliseconds (0 for unsynced lyrics). */
   ms: number;
@@ -233,6 +246,10 @@ export interface StatusSnapshot {
   locked: boolean;
   duckOn: boolean;
   duckDb: number;
+  /** Bit i set = sampler pad i is playing. */
+  padsPlaying: number;
+  /** Current sampler ducking of the music in dB (0 = none). */
+  samplerDuckDb: number;
 }
 
 export interface LockInfo {

@@ -13,7 +13,7 @@ export type DragPayload =
   | { kind: "queue"; uids: number[]; trackIds: number[]; label: string }
   | { kind: "files"; paths: string[]; label: string };
 
-export type DropType = "deck" | "queue" | "queue-item" | "crate" | "folder-tree";
+export type DropType = "deck" | "queue" | "queue-item" | "crate" | "folder-tree" | "pad";
 
 export interface DropTarget {
   type: DropType;
@@ -30,7 +30,7 @@ export interface DragState {
 
 export const dragStore = createStore<DragState | null>(null);
 
-const DROP_TYPES: readonly DropType[] = ["deck", "queue", "queue-item", "crate", "folder-tree"];
+const DROP_TYPES: readonly DropType[] = ["deck", "queue", "queue-item", "crate", "folder-tree", "pad"];
 
 function isDropType(v: string | undefined): v is DropType {
   return v !== undefined && (DROP_TYPES as readonly string[]).includes(v);
@@ -47,6 +47,8 @@ export function accepts(payload: DragPayload, type: DropType): boolean {
       return payload.kind !== "queue";
     case "folder-tree":
       return payload.kind === "files";
+    case "pad":
+      return payload.kind !== "queue";
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { backend } from "../ipc/backend";
 import {
+  browser,
   addToCrate,
   loadToDeck,
   notify,
@@ -11,6 +12,7 @@ import {
   setQueue,
 } from "../state/app";
 import { expandFolder } from "../state/explorer";
+import { loadPad } from "../state/sampler";
 import type { DragPayload, DropTarget } from "./drag";
 
 const AUDIO = /\.(mp3|flac|wav|m4a|mp4|aac|ogg|oga|aif)$/i;
@@ -60,6 +62,21 @@ export async function performDrop(payload: DragPayload, target: DropTarget): Pro
       } else {
         await addToCrate(id, payload.trackIds);
       }
+      return;
+    }
+    case "pad": {
+      const pad = Number(target.value);
+      let path: string | undefined;
+      if (payload.kind === "files") path = payload.paths.find((x) => AUDIO.test(x));
+      else if (payload.kind === "tracks") {
+        const id = payload.trackIds[0];
+        path = browser.get().rows.find((r) => r.track.id === id)?.track.path;
+      }
+      if (path === undefined) {
+        notify("error", `Pad ${pad + 1}: drop an audio file (mp3, flac, wav, m4a, ogg)`);
+        return;
+      }
+      await loadPad(pad, path);
       return;
     }
     case "folder-tree": {

@@ -6,6 +6,24 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:58 — M9: Sampler strip and deck pads
+- **Added:** a **SAMPLER** button in the top bar (Ctrl+P) opens the Sampler strip under it:
+  8 pads with a name, a volume knob each and a "Stop all" button. Drop a sound on a pad from
+  Windows Explorer or drag a track from the table; or click an empty pad / right-click →
+  Choose file…. Click a pad or press **Alt+1…8** to play it; a playing pad lights up.
+- **Added:** right-click a pad: Play, Stop, Choose file…, Volume ▸ (+6 … −20 dB),
+  Choke group ▸ (None, Group 1–4) and Clear. The choke group shows on the pad (e.g. "G2").
+- **Added:** each deck's pad block now has **HOT CUE | SAMPLER** tabs; in SAMPLER mode the
+  deck's 8 pads play the sampler pads.
+- **Added:** clear messages: an empty pad says how to load it; a missing file says
+  "Missing"; dropping a non-audio file says so.
+- **Tests:** 5 new screen tests pass (75 in total): strip opens from the button and Ctrl+P;
+  a dropped file loads a pad, click and Alt+3 play it, Stop all; a table track loads a pad and
+  a .txt file is refused visibly; choke group, volume and clear from the pad menu; deck pads
+  switch to the sampler and play it.
+- **Not verified:** real drag & drop from Explorer onto a pad, and the sound (owner).
+- **Commit:** pending
+
 ### 2026-10-10 11:53 — M9: App — sampler pads saved and restored
 - **Added:** the app can put a sound file on a pad, set its volume and choke group, play and
   stop pads. The pad layout is saved and comes back when the app starts (the sounds load in
@@ -17,7 +35,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   (rendered offline), volume and choke group saved, restored after a "restart" with one file
   deleted (that pad shows "file not found"); corrupt files, pad 9 and choke group 9 are
   refused; LOCK blocks changes but not playing.
-- **Commit:** pending
+- **Commit:** ee7f96f
 
 ### 2026-10-10 11:50 — M9: Sampler in the audio engine
 - **Added:** 8 sampler pads in the engine. A pad holds a short sound (up to 30 s; longer files

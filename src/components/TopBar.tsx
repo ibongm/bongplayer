@@ -8,6 +8,7 @@ import { settingsOpen, view, type View } from "../state/ui";
 import { openMenu } from "./ContextMenu";
 import { DuckButton, LockButton } from "./LockDuck";
 import { radioOpen } from "./RadioStrip";
+import { samplerOpen } from "../state/sampler";
 
 const VIEWS: { id: View; label: string; key: string }[] = [
   { id: "standard", label: "STANDARD", key: "Ctrl+1" },
@@ -34,6 +35,8 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl+R", "Radio strip"],
   ["Ctrl+I", "Automix / Info tab"],
   ["Ctrl+Y", "Lyrics drawer (LRC)"],
+  ["Ctrl+P", "Sampler strip"],
+  ["Alt+1 … 8", "Play sampler pad 1–8"],
 ];
 
 function Clock(): ReactNode {
@@ -50,6 +53,23 @@ function Clock(): ReactNode {
     <span data-tauri-drag-region className="whitespace-nowrap text-[15px] font-semibold tabular-nums" title="Time">
       {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
     </span>
+  );
+}
+
+function SamplerToggle(): ReactNode {
+  const open = useStore(samplerOpen, (o) => o);
+  return (
+    <button
+      type="button"
+      aria-pressed={open}
+      title="Show / hide the Sampler strip (Ctrl+P)"
+      className={`rounded px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${open ? "bg-accent/30 text-text" : "bg-surface-raised text-muted hover:text-text"}`}
+      onClick={() => {
+        samplerOpen.set(!open);
+      }}
+    >
+      SAMPLER
+    </button>
   );
 }
 
@@ -134,6 +154,7 @@ export function TopBar(): ReactNode {
       >
         ⌨
       </button>
+      <SamplerToggle />
       <RadioToggle />
       <DuckButton />
       <LockButton />

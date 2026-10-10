@@ -4,6 +4,7 @@
 
 import type { Backend } from "./backend";
 import type {
+  PadInfo,
   AutomixConfig,
   CrateEntry,
   CrateInfo,
@@ -222,6 +223,21 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
   let locked = false;
   let lockOpts = { volumeAllowed: true, holdUnlocks: true, pin: null as string | null };
   let duckOn = false;
+  // Sampler: 8 pads; a triggered pad "plays" until stopped (the stand-in has no audio).
+  type Pad = { path: string | null; gainDb: number; choke: number; seconds: number | null; error: string | null };
+  const pads: Pad[] = Array.from({ length: 8 }, () => ({ path: null, gainDb: 0, choke: 0, seconds: null, error: null }));
+  let padsPlaying = 0;
+  const padList = (): PadInfo[] =>
+    pads.map((p, index) => ({
+      index,
+      name: p.path === null ? "" : baseName(p.path).replace(/\.[^.]+$/, ""),
+      path: p.path,
+      gainDb: p.gainDb,
+      choke: p.choke,
+      seconds: p.seconds,
+      error: p.error,
+    }));
+  const padOk = (pad: number): boolean => Number.isInteger(pad) && pad >= 0 && pad < 8;
   const lockedError = <T>(): IpcResult<T> => fail("Locked — unlock with the PIN or by holding LOCK");
   const stations = new Map<number, { id: number; name: string; url: string; playMinutes: number }>();
   let nextStation = 1;
@@ -550,6 +566,8 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         locked,
         duckOn,
         duckDb: duckOn ? -12 : 0,
+        padsPlaying,
+        samplerDuckDb: padsPlaying !== 0 ? -9 : 0,
       };
       return resolve(ok(snap));
     },
@@ -931,6 +949,50 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         (c) => c.charCodeAt(0),
       );
       return resolve(ok(png.buffer));
+    },
+    samplerPads: () => resolve(ok(padList())),
+    samplerLoad: (pad, path) => {
+      calls.push(["samplerLoad", { pad, path }]);
+      if (!padOk(pad)) return resolve(fail("there are 8 pads (1–8)"));
+      if (locked) return resolve(lockedError());
+      if (!isAudioPath(path)) return resolve(fail(`not a playable audio file: ${path}`));
+      const p = pads[pad];
+      if (p) Object.assign(p, { path, seconds: 3, error: null });
+      return resolve(ok(padList()));
+    },
+    samplerClear: (pad) => {
+      calls.push(["samplerClear", pad]);
+      if (locked) return resolve(lockedError());
+      const p = pads[pad];
+      if (!p) return resolve(fail("there are 8 pads (1–8)"));
+      Object.assign(p, { path: null, gainDb: 0, choke: 0, seconds: null, error: null });
+      padsPlaying &= ~(1 << pad);
+      return resolve(ok(padList()));
+    },
+    samplerConfigure: (pad, gainDb, choke) => {
+      calls.push(["samplerConfigure", { pad, gainDb, choke }]);
+      if (locked) return resolve(lockedError());
+      const p = pads[pad];
+      if (!p) return resolve(fail("there are 8 pads (1–8)"));
+      if (choke < 0 || choke > 4) return resolve(fail("choke group must be 0 (none) or 1–4"));
+      Object.assign(p, { gainDb: Math.max(-120, Math.min(6, gainDb)), choke });
+      return resolve(ok(padList()));
+    },
+    samplerTrigger: (pad) => {
+      calls.push(["samplerTrigger", pad]);
+      const p = pads[pad];
+      if (!p) return resolve(fail("there are 8 pads (1–8)"));
+      if (p.seconds === null) return resolve(fail(`pad ${pad + 1} is empty — drop a sound on it`));
+      if (p.choke !== 0) pads.forEach((o, i) => {
+        if (i !== pad && o.choke === p.choke) padsPlaying &= ~(1 << i);
+      });
+      padsPlaying |= 1 << pad;
+      return resolve(ok(null));
+    },
+    samplerStop: (pad) => {
+      calls.push(["samplerStop", pad]);
+      padsPlaying = pad === null ? 0 : padsPlaying & ~(1 << pad);
+      return resolve(ok(null));
     },
     trackLyrics: (trackId) => {
       calls.push(["trackLyrics", trackId]);

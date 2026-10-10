@@ -12,6 +12,7 @@ import { explorer } from "../state/explorer";
 import { menuStore } from "../components/ContextMenu";
 import { clearCoverCache } from "../components/Cover";
 import { clearLyricsCache, lyricsDrawer } from "../state/lyrics";
+import { pads, samplerOpen } from "../state/sampler";
 import { channelDefaults, dockTab, internetLookup, mixer, settingsOpen, view } from "../state/ui";
 
 export type Mock = ReturnType<typeof createMockBackend>;
@@ -39,6 +40,8 @@ function resetStores(): void {
   clearCoverCache();
   clearLyricsCache();
   lyricsDrawer.set(false);
+  samplerOpen.set(false);
+  pads.set([]);
   mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
 }
 

@@ -20,6 +20,8 @@ import { useStore } from "./state/store";
 import { dockTab, send, settingsOpen, view } from "./state/ui";
 import { lyricsDrawer } from "./state/lyrics";
 import { LyricsDrawer } from "./components/Lyrics";
+import { SamplerStrip } from "./components/SamplerStrip";
+import { samplerOpen, triggerPad } from "./state/sampler";
 import { Titlebar } from "./Titlebar";
 
 interface AppProps {
@@ -110,6 +112,18 @@ function useGlobalShortcuts(): void {
         radioOpen.set(!radioOpen.get());
         return;
       }
+      if (ctrl && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        samplerOpen.set(!samplerOpen.get());
+        return;
+      }
+      // Sampler pads: Alt+1…8.
+      const padKey = /^Digit([1-8])$/.exec(e.code);
+      if (padKey && e.altKey && !ctrl) {
+        e.preventDefault();
+        if (!e.repeat) void triggerPad(Number(padKey[1]) - 1);
+        return;
+      }
       if (ctrl && (e.key === "y" || e.key === "Y")) {
         e.preventDefault();
         lyricsDrawer.set(!lyricsDrawer.get());
@@ -191,6 +205,7 @@ export function App({ appInfo }: AppProps): ReactNode {
         <StartupError appInfo={appInfo} />
       </Suspense>
       {error !== null && <ErrorBanner message={error} />}
+      <SamplerStrip />
       <RadioStrip />
       <main className="flex min-h-0 w-full flex-1 flex-col">
         <MainArea />

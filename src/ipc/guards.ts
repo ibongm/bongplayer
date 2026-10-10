@@ -169,6 +169,21 @@ export function isLookupOutcome(v: unknown): v is import("./types").LookupOutcom
   );
 }
 
+function isPadInfo(v: unknown): v is import("./types").PadInfo {
+  return (
+    isRecord(v) &&
+    isNumber(v.index) &&
+    isString(v.name) &&
+    isStrOrNull(v.path) &&
+    isNumber(v.gainDb) &&
+    isNumber(v.choke) &&
+    (v.seconds === null || isNumber(v.seconds)) &&
+    isStrOrNull(v.error)
+  );
+}
+
+export const isPadList = arrayOf(isPadInfo);
+
 function isLyricLine(v: unknown): v is import("./types").LyricLine {
   return isRecord(v) && isNumber(v.ms) && isString(v.text);
 }
@@ -221,7 +236,9 @@ export function isStatusSnapshot(v: unknown): v is StatusSnapshot {
     isRecord(v.automix.config) &&
     isBool(v.locked) &&
     isBool(v.duckOn) &&
-    isNumber(v.duckDb)
+    isNumber(v.duckDb) &&
+    isNumber(v.padsPlaying) &&
+    isNumber(v.samplerDuckDb)
   );
 }
 

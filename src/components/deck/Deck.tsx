@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { backend } from "../../ipc/backend";
-import type { DeckName, DeckSnapshot } from "../../ipc/types";
+import type { DeckName, DeckSnapshot, PadInfo } from "../../ipc/types";
 import { notify, refresh, run, status } from "../../state/app";
 import { useStore } from "../../state/store";
 import { context2d, cssColor, ensureWaveform, livePosition, mixer, onFrame, send, waveforms } from "../../state/ui";
 import { Fader } from "../controls/Fader";
 import { Cover } from "../Cover";
+import { pads, refreshPads, triggerPad } from "../../state/sampler";
 import { formatTime } from "../TrackTable";
 import { useLiveText } from "./useLiveText";
 
@@ -279,6 +280,67 @@ function HotCuePads({ deck, index }: { deck: DeckName; index: 0 | 1 }): ReactNod
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** The deck pads: hot cues 1–8, or the 8 sampler pads. */
+function DeckPads({ deck, index }: { deck: DeckName; index: 0 | 1 }): ReactNode {
+  const [mode, setMode] = useState<"cues" | "sampler">("cues");
+  const list = useStore(pads, (p) => p);
+  const playing = useStore(status, (s) => s?.padsPlaying ?? 0);
+
+  useEffect(() => {
+    if (mode === "sampler" && pads.get().length === 0) void refreshPads();
+  }, [mode]);
+
+  const tab = (id: "cues" | "sampler", label: string, title: string): ReactNode => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={mode === id}
+      title={title}
+      className={`rounded px-1.5 text-[11px] font-bold ${mode === id ? "bg-accent/25 text-text" : "text-muted hover:text-text"}`}
+      onClick={() => {
+        setMode(id);
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex flex-col gap-1">
+      <div role="tablist" aria-label={`Deck ${deck} pad mode`} className="flex gap-1">
+        {tab("cues", "HOT CUE", "Pads set and jump to hot cues 1–8")}
+        {tab("sampler", "SAMPLER", "Pads play sampler pads 1–8 (Alt+1…8)")}
+      </div>
+      {mode === "cues" ? (
+        <HotCuePads deck={deck} index={index} />
+      ) : (
+        <div className="grid grid-cols-4 gap-1" role="group" aria-label={`Deck ${deck} sampler pads`}>
+          {Array.from({ length: 8 }, (_, i) => {
+            const p: PadInfo | undefined = list[i];
+            const loaded = p?.seconds != null;
+            const on = (playing & (1 << i)) !== 0;
+            return (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Sampler pad ${i + 1}: ${loaded ? p.name : "empty"}`}
+                aria-pressed={on}
+                title={loaded ? `Play ${p.name} (Alt+${i + 1})` : `Sampler pad ${i + 1} is empty — open the Sampler strip (Ctrl+P) to load a sound`}
+                disabled={!loaded}
+                className={`h-8 truncate rounded border px-1 text-[11px] font-bold ${
+                  on ? "border-accent bg-accent text-bg" : "border-border bg-bg hover:bg-surface-raised disabled:text-muted"
+                }`}
+                onClick={() => void triggerPad(i)}
+              >
+                {loaded ? p.name : i + 1}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -590,7 +652,7 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
           ) : (
             <>
               <LoopPanel deck={deck} index={index} />
-              <HotCuePads deck={deck} index={index} />
+              <DeckPads deck={deck} index={index} />
             </>
           )}
           <div className="flex justify-center">

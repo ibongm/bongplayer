@@ -20,6 +20,7 @@ import {
   isLockInfo,
   isLookupOutcome,
   isLyricsOrNull,
+  isPadList,
   isNumber,
   isQueueEntry,
   isString,
@@ -35,6 +36,7 @@ import type {
   LockInfo,
   LookupOutcome,
   Lyrics,
+  PadInfo,
   MasterAction,
   CrateEntry,
   CrateInfo,
@@ -119,6 +121,13 @@ export interface Backend {
   lookupTrack(trackId: number): Promise<IpcResult<LookupOutcome>>;
   /** Lyrics from the .lrc file, the file's tags, or LRCLIB (internet on); null when none. */
   trackLyrics(trackId: number): Promise<IpcResult<Lyrics | null>>;
+  samplerPads(): Promise<IpcResult<PadInfo[]>>;
+  samplerLoad(pad: number, path: string): Promise<IpcResult<PadInfo[]>>;
+  samplerClear(pad: number): Promise<IpcResult<PadInfo[]>>;
+  samplerConfigure(pad: number, gainDb: number, choke: number): Promise<IpcResult<PadInfo[]>>;
+  samplerTrigger(pad: number): Promise<IpcResult<null>>;
+  /** Stops one pad, or all pads when `pad` is null. */
+  samplerStop(pad: number | null): Promise<IpcResult<null>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -232,6 +241,12 @@ export const tauriBackend: Backend = {
   trackCover: (trackId, large) => call("track_cover", { trackId, large }, isArrayBuffer),
   lookupTrack: (trackId) => call("lookup_track", { trackId }, isLookupOutcome),
   trackLyrics: (trackId) => call("track_lyrics", { trackId }, isLyricsOrNull),
+  samplerPads: () => call("sampler_pads", {}, isPadList),
+  samplerLoad: (pad, path) => call("sampler_load", { pad, path }, isPadList),
+  samplerClear: (pad) => call("sampler_clear", { pad }, isPadList),
+  samplerConfigure: (pad, gainDb, choke) => call("sampler_configure", { pad, gainDb, choke }, isPadList),
+  samplerTrigger: (pad) => call("sampler_trigger", { pad }, unit),
+  samplerStop: (pad) => call("sampler_stop", { pad }, unit),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),
