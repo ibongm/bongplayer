@@ -6,6 +6,24 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 06:41 — M3: App connects the window to the engine and the library
+- **Added:** when the app starts it opens the library database in the app's data folder,
+  starts the audio engine on the preferred sound card (if one is saved) or the default one,
+  and sends the screen the state of both decks about 60 times a second (position, tempo,
+  key lock, cues, how far decoding has got, decoding errors, which device is playing).
+- **Added:** commands the screen can use: browse drives and folders, read a folder's tracks,
+  the Music Library, import files/folders, crates and playlists, M3U import, BPM/key analysis
+  (on a separate database connection so the library stays usable meanwhile), ratings, manual
+  BPM, play counts, load a track or a dropped file onto Deck A/B (saved hot cues come back),
+  all deck and mixer controls, the Automix queue (add, insert, move, remove, clear, shuffle),
+  "Show in Explorer", and saved settings.
+- **Added:** file-picker dialogs (Tauri dialog plugin, MIT/Apache-2.0) for Import Files /
+  Folder / M3U.
+- **Tests:** 5 app tests pass (queue add/insert/move/remove/shuffle, same track queued twice,
+  command parsing); the full Rust test suite passes.
+- **Not verified:** the complete app on the bar PC (see the M3 screens entry).
+- **Commit:** pending
+
 ### 2026-10-10 06:16 — M3: Music library core — tag cache, BPM/key analysis, crates, playlists, M3U import
 - **Added:** the music library database (`crates/library`, SQLite). It remembers every track's
   tags (title, artist, album, remix, genre, year, length, BPM, key, cover yes/no), so a folder
@@ -33,7 +51,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Not verified:** BPM/key of the owner's real songs — the plan's regression list (Come
   Together, Smells Like Teen Spirit, Johnny B. Goode) needs the owner's files and confirmed
   values; the synthetic tests above stand in for now. Speed on the bar laptop (fewer cores).
-- **Commit:** pending
+- **Commit:** 71d7c37
 
 ### 2026-10-10 05:57 — M2: Preferred output device (DDJ-400) with automatic switching
 - **Added:** a preferred output device. When it is plugged in, the music moves to it; when it

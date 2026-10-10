@@ -57,6 +57,12 @@ pub enum Command {
         deck: DeckId,
         slot: usize,
     },
+    /// Restores a saved hot cue (track frames) after loading a track.
+    SetHotCueAt {
+        deck: DeckId,
+        slot: usize,
+        frame: f64,
+    },
     /// Pitch as a fraction (+0.08 = 8 % faster), clamped to the deck's range.
     SetPitch {
         deck: DeckId,
@@ -443,6 +449,9 @@ impl Engine {
                 self.decks[deck as usize].jump_to_hot_cue(slot);
             }
             Command::ClearHotCue { deck, slot } => self.decks[deck as usize].clear_hot_cue(slot),
+            Command::SetHotCueAt { deck, slot, frame } => {
+                self.decks[deck as usize].set_hot_cue_at(slot, frame);
+            }
             Command::SetPitch { deck, pitch } => self.decks[deck as usize].set_pitch(pitch),
             Command::SetPitchRange { deck, range } => {
                 self.decks[deck as usize].set_pitch_range(range);

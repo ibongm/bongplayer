@@ -1,45 +1,90 @@
-use serde::Serialize;
+//! BongPlayer desktop app: thin glue between the window (React UI), the audio engine and the
+//! music library.
 
-/// Basic information about the running app, shown in the titlebar.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct AppInfo {
-    pub name: String,
-    pub version: String,
-}
+pub mod commands;
+pub mod state;
+pub mod status;
 
-#[tauri::command]
-fn app_info() -> AppInfo {
-    AppInfo {
-        name: "BongPlayer".to_owned(),
-        version: env!("CARGO_PKG_VERSION").to_owned(),
-    }
+use std::sync::Arc;
+
+use engine::cpal_backend::CpalBackend;
+use engine::output::OutputSupervisor;
+use library::Library;
+use tauri::Manager;
+
+use crate::state::AppState;
+
+/// Settings key of the preferred output device id.
+pub const PREFERRED_OUTPUT_KEY: &str = "audio.preferred_output";
+
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let data_dir = app.path().app_data_dir()?;
+    std::fs::create_dir_all(&data_dir)?;
+    let db_path = data_dir.join("library.db");
+    let library = Library::open(&db_path)?;
+    let preferred = library.setting(PREFERRED_OUTPUT_KEY).ok().flatten();
+
+    let (handle, engine) = engine::new_engine(48_000);
+    // If audio output cannot even start, the app still opens and shows the problem.
+    let output = match OutputSupervisor::start(CpalBackend, engine, preferred) {
+        Ok(o) => Some(o),
+        Err(e) => {
+            eprintln!("BongPlayer: audio output could not start: {e}");
+            None
+        }
+    };
+    app.manage(Arc::new(AppState::new(db_path, library, handle, output)));
+    status::start(app.handle().clone());
+    Ok(())
 }
 
 pub fn run() {
-    if let Err(err) = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info])
-        .run(tauri::generate_context!())
-    {
+    use commands::*;
+    let result = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .setup(setup)
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            engine_status,
+            list_drives,
+            special_folders,
+            list_dir,
+            show_in_explorer,
+            folder_tracks,
+            library_tracks,
+            import_paths,
+            crates_list,
+            crate_create,
+            crate_rename,
+            crate_delete,
+            crate_tracks,
+            crate_add,
+            crate_add_paths,
+            crate_remove,
+            import_m3u,
+            analyze_tracks,
+            mark_played,
+            remove_tracks,
+            set_rating,
+            set_bpm,
+            setting_get,
+            setting_set,
+            deck_load,
+            deck_load_path,
+            hot_cue_set,
+            hot_cue_clear,
+            engine_command,
+            queue_list,
+            queue_add,
+            queue_add_paths,
+            queue_move,
+            queue_remove,
+            queue_clear,
+            queue_shuffle,
+        ])
+        .run(tauri::generate_context!());
+    if let Err(err) = result {
         eprintln!("BongPlayer failed to start: {err}");
         std::process::exit(1);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn app_info_reports_name_and_crate_version() {
-        let info = app_info();
-        assert_eq!(info.name, "BongPlayer");
-        assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
-    }
-
-    #[test]
-    fn app_info_serialises_to_the_ipc_shape() {
-        let json = serde_json::to_value(app_info()).expect("serialise");
-        assert!(json.get("name").is_some_and(|v| v.is_string()));
-        assert!(json.get("version").is_some_and(|v| v.is_string()));
     }
 }

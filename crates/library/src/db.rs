@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Row};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::tags::{read_tags, Tags};
 
@@ -38,7 +38,7 @@ pub struct TrackRow {
     pub missing: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CrateKind {
     /// A set of tracks (no duplicates, no meaningful order).
