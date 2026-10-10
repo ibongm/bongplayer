@@ -6,6 +6,26 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:57 — M2: Preferred output device (DDJ-400) with automatic switching
+- **Added:** a preferred output device. When it is plugged in, the music moves to it; when it
+  disappears, the music falls back to the Windows default device and keeps playing; when it
+  comes back, the music moves back. Choosing a preferred device while music plays switches at
+  once. Each move takes well under a second of silence.
+- **Added:** the output also notices a device that is unplugged without the driver saying so
+  (it checks the device list twice a second).
+- **Added:** test program options: `play_file -- --devices` lists the output devices with their
+  ids; `play_file -- --prefer <id> <file>` plays on that device whenever it is plugged in.
+- **Added:** headphone-cue test program `channel_test <device id>`: plays a low tone on channels
+  1–2 and a high tone on channels 3–4, to find out whether the DDJ-400 headphones can be reached
+  through normal Windows audio (the M2 headphone spike).
+- **Tests:** 5 output tests pass (2 new) — preferred device plugged in → switch; unplugged →
+  fall back to the default; plugged in again → switch back; choosing a preferred device while
+  playing switches; every move leaves less than 1 s of silence; the earlier recovery tests
+  still pass. On this PC the device list shows the real devices (Realtek headphones, LG monitor).
+- **Not verified:** with the real DDJ-400 — owner check (switching, and the headphone spike with
+  `channel_test`).
+- **Commit:** pending
+
 ### 2026-10-10 05:54 — M2: Pitch, key lock, pitch bend and scratching on the decks
 - **Decision (owner, 2026-10-10):** after M1 the owner checked `play_file`: music played fine
   (the unplug test was not tried). The owner then asked to build M2–M11 in one go on one branch
@@ -28,7 +48,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   2 frames; pitch bend works and releases.
 - **Not verified:** how key lock *sounds* on real music (owner listening test, PLAN M2), and how
   scratching *feels* with the mouse (needs the deck screen, M4).
-- **Commit:** pending
+- **Commit:** 5511855
 
 ### 2026-10-10 05:30 — M1: All engine tests pass — M1 automated tests ticked
 - **Changed:** `PLAN.md` — all 7 M1 acceptance tests ticked (all are automated). The

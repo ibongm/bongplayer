@@ -4,17 +4,39 @@
 //!
 //! While it plays, unplug/replug the output device: playback should continue on the new default
 //! device. Stop with Ctrl+C.
+//!
+//!     cargo run --release -p engine --example play_file -- --devices
+//!         lists the output devices and their ids
+//!     cargo run --release -p engine --example play_file -- --prefer <device id> <audio file>
+//!         plays on that device whenever it is plugged in, the default device otherwise
 
 use std::path::PathBuf;
 use std::time::Duration;
 
 use engine::cpal_backend::CpalBackend;
-use engine::output::OutputSupervisor;
+use engine::output::{AudioBackend, OutputSupervisor};
 use engine::{new_engine, start_decoding, Command, DeckId};
 
 fn main() {
-    let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) else {
-        eprintln!("usage: play_file <audio file>");
+    let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    if args.first().is_some_and(|a| a == "--devices") {
+        for d in CpalBackend.devices() {
+            let default = if d.is_default { "  (default)" } else { "" };
+            println!(
+                "{}{default}
+    id: {}",
+                d.name, d.id
+            );
+        }
+        return;
+    }
+    let mut preferred = None;
+    if args.first().is_some_and(|a| a == "--prefer") && args.len() >= 2 {
+        preferred = Some(args[1].to_string_lossy().into_owned());
+        args.drain(..2);
+    }
+    let Some(path) = args.first().map(PathBuf::from) else {
+        eprintln!("usage: play_file [--devices | --prefer <device id>] <audio file>");
         std::process::exit(2);
     };
     let track = match start_decoding(&path) {
@@ -41,7 +63,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    let output = match OutputSupervisor::start(CpalBackend, engine) {
+    let output = match OutputSupervisor::start(CpalBackend, engine, preferred) {
         Ok(o) => o,
         Err(e) => {
             eprintln!("cannot start output: {e}");
@@ -57,7 +79,7 @@ fn main() {
         let deck = status.deck(DeckId::A);
         let secs = deck.position() / f64::from(file_rate);
         println!(
-            "{:>3}:{:04.1}  output {} Hz  {}  reopened {}x",
+            "{:>3}:{:04.1}  output {} Hz  {}  reopened {}x  on {}",
             (secs / 60.0) as u64,
             secs % 60.0,
             status.sample_rate(),
@@ -67,6 +89,10 @@ fn main() {
                 "NO OUTPUT"
             },
             output.state().reopens(),
+            output
+                .state()
+                .current_device()
+                .map_or_else(|| "-".to_string(), |d| d.name),
         );
         let problem = output.state().last_problem();
         if problem != last_problem {
