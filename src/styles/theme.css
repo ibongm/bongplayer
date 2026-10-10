@@ -1,0 +1,18 @@
+/*
+ * Skins are data: every colour in the app comes from these variables.
+ * Default skin: Midnight Slate (dark glass).
+ */
+:root,
+:root[data-theme="midnight-slate"] {
+  --color-bg: #0b0f15;
+  --color-surface: #121822;
+  --color-surface-raised: #1a2230;
+  --color-border: #263042;
+  --color-text: #e6ebf2;
+  --color-text-muted: #8b97a8;
+  --color-accent: #38bdf8;
+  --color-accent-2: #a855f7;
+  --color-danger: #f43f5e;
+  --color-danger-text: #ffffff;
+  --color-focus: #38bdf8;
+}
