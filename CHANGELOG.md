@@ -6,6 +6,14 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 04:46 — M0: Manual check passed — M0 complete
+- **Changed:** `PLAN.md` — the manual M0 test is ticked. The owner installed the app from the
+  GitHub installer: the window opens with the app shell, and the titlebar works (moving the window,
+  minimise / maximise / close, tooltips). All M0 acceptance tests now pass.
+- **Tests:** owner's manual check on a real PC (reported "Everything works").
+- **Not verified:** none for M0.
+- **Commit:** pending
+
 ### 2026-10-10 04:24 — M0: Automated M0 tests ticked in the plan
 - **Changed:** `PLAN.md` — the two automated M0 tests are ticked: the project skeleton with
   `cargo test`, `tsc --noEmit` and `vitest` running in CI, and GitHub building and uploading the
