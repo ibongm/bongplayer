@@ -20,9 +20,26 @@ what still needs a human check.
 - Tick an acceptance test in `PLAN.md` only when it actually passes. Automated tests: run
   them and show the result. Manual (**M**) tests: leave them unticked and list exactly what
   the owner must check on the bar PC.
-- At the end of each milestone, add an entry under `## [Unreleased]` in `CHANGELOG.md`
-  (Keep a Changelog format: Added / Changed / Fixed / Security), then commit.
 - Commit messages: `m3: short description of what was delivered`.
+
+## 1a. Changelog — keep it current, always
+
+`CHANGELOG.md` is a running log the owner reads. Update it **in the same commit as every
+change that affects behaviour** (feature, fix, removal, decision) — not just at the end of a
+milestone. Never leave a commit with an out-of-date changelog.
+
+- Newest entry first, under `## [Unreleased]`.
+- Each entry has a **date and time** taken from the PC clock (run
+  `Get-Date -Format "yyyy-MM-dd HH:mm"`; never guess or invent a time) and the milestone:
+  `### 2026-10-10 14:32 — M3: Drag & drop from Explorer to decks`
+- Under it, plain-language bullets grouped as **Added / Changed / Fixed / Removed / Security**,
+  saying *what changed for the user* (not file names), then:
+  - `Commit:` the short hash (add it in a follow-up commit if needed)
+  - `Tests:` which automated tests cover it and that they pass
+  - `Not verified:` anything that still needs a manual check on the bar PC (or "none")
+- Record decisions and things that were cut or postponed too, with the reason.
+- On a release, move `[Unreleased]` entries under `## [X.Y.Z] - YYYY-MM-DD`, keeping their
+  timestamps, and tag the commit `vX.Y.Z`.
 
 ## 2. Architecture — hard rules
 
