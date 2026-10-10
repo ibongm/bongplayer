@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { backend } from "../../ipc/backend";
-import type { DeckName, DeckSnapshot, PadInfo } from "../../ipc/types";
+import type { DeckName, DeckSnapshot, FxName, PadInfo } from "../../ipc/types";
 import { notify, refresh, run, status } from "../../state/app";
 import { useStore } from "../../state/store";
-import { context2d, cssColor, ensureWaveform, livePosition, mixer, onFrame, send, waveforms } from "../../state/ui";
+import { context2d, cssColor, ensureWaveform, livePosition, mixer, onFrame, send, setChannel, waveforms } from "../../state/ui";
+import { Knob } from "../controls/Knob";
 import { Fader } from "../controls/Fader";
 import { Cover } from "../Cover";
 import { pads, refreshPads, triggerPad } from "../../state/sampler";
@@ -282,6 +283,71 @@ function HotCuePads({ deck, index }: { deck: DeckName; index: 0 | 1 }): ReactNod
           </button>
         );
       })}
+    </div>
+  );
+}
+
+const FX: { id: FxName; label: string; title: string }[] = [
+  { id: "off", label: "OFF", title: "No effect" },
+  { id: "echo", label: "ECHO", title: "Echo on the beat — SPD: ¼, ½, ¾, 1 or 2 beats; STR: echo level" },
+  { id: "flanger", label: "FLANGER", title: "Flanger — SPD: sweep speed; STR: depth" },
+  { id: "filter", label: "FILTER", title: "Swept filter — SPD: sweep speed; STR: how much is filtered" },
+];
+const ECHO_BEATS = ["¼", "½", "¾", "1", "2"];
+
+/** Text for the SPD knob (matches the engine: echo beats, or seconds per sweep). */
+export function fxSpeedText(kind: FxName, v: number): string {
+  if (kind === "echo") return `${ECHO_BEATS[Math.round(Math.min(1, Math.max(0, v)) * 4)] ?? "1"} beat`;
+  const seconds = 8 * Math.pow(0.25 / 8, Math.min(1, Math.max(0, v)));
+  return `${seconds < 1 ? seconds.toFixed(2) : seconds.toFixed(1)} s per sweep`;
+}
+
+function FxPanel({ deck }: { deck: DeckName }): ReactNode {
+  const ch = useStore(mixer, (m) => m[deck]);
+  return (
+    <div className="flex items-center gap-1.5" role="group" aria-label={`Deck ${deck} effect`}>
+      <div className="flex flex-wrap gap-1">
+        {FX.map((f) => (
+          <Btn
+            key={f.id}
+            title={f.title}
+            active={ch.fx === f.id}
+            onClick={() => {
+              setChannel(deck, "fx", f.id);
+            }}
+          >
+            {f.label}
+          </Btn>
+        ))}
+      </div>
+      <Knob
+        label="STR"
+        size={28}
+        value={ch.fxStr}
+        min={0}
+        max={1}
+        defaultValue={0.5}
+        steps={20}
+        format={(v) => `${Math.round(v * 100)} %`}
+        hint={`deck ${deck} effect strength`}
+        onChange={(v) => {
+          setChannel(deck, "fxStr", v);
+        }}
+      />
+      <Knob
+        label="SPD"
+        size={28}
+        value={ch.fxSpd}
+        min={0}
+        max={1}
+        defaultValue={0.5}
+        steps={ch.fx === "echo" ? 4 : 20}
+        format={(v) => fxSpeedText(ch.fx, v)}
+        hint={`deck ${deck} effect speed`}
+        onChange={(v) => {
+          setChannel(deck, "fxSpd", v);
+        }}
+      />
     </div>
   );
 }
@@ -654,6 +720,7 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
           ) : (
             <>
               <LoopPanel deck={deck} index={index} />
+              <FxPanel deck={deck} />
               <DeckPads deck={deck} index={index} />
             </>
           )}

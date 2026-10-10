@@ -92,6 +92,15 @@ function useGlobalShortcuts(): void {
         void openSource({ kind: "library" });
         return;
       }
+      // Headphone cue: Ctrl+Shift+1 / 2.
+      const cueKey = /^Digit([12])$/.exec(e.code);
+      if (cueKey && ctrl && e.shiftKey) {
+        e.preventDefault();
+        const deck: DeckName = cueKey[1] === "1" ? "A" : "B";
+        const on = status.get()?.cue[deck === "A" ? 0 : 1] ?? false;
+        void send({ type: "cue", deck, on: !on }, "Headphones");
+        return;
+      }
       if (ctrl && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
         view.set(e.key === "1" ? "standard" : e.key === "2" ? "decks" : e.key === "3" ? "library" : "day");

@@ -229,6 +229,7 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
   type Pad = { path: string | null; gainDb: number; choke: number; seconds: number | null; error: string | null };
   const pads: Pad[] = Array.from({ length: 8 }, () => ({ path: null, gainDb: 0, choke: 0, seconds: null, error: null }));
   let padsPlaying = 0;
+  const cue: [boolean, boolean] = [false, false];
   const padList = (): PadInfo[] =>
     pads.map((p, index) => ({
       index,
@@ -430,11 +431,16 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     liveDeck[deck] = { name, url };
   }
   function command(c: UiCommand): IpcResult<null> {
-    const volume = c.type === "fader" || c.type === "master";
+    const volume = c.type === "fader" || c.type === "master" || c.type === "cue" || c.type === "cueMix";
     if (locked && !(volume && lockOpts.volumeAllowed)) return lockedError();
-    if (c.type === "crossfader" || c.type === "master" || c.type === "limiterCeiling") {
+    if (c.type === "crossfader" || c.type === "master" || c.type === "limiterCeiling" || c.type === "cueMix") {
       return ok(null);
     }
+    if (c.type === "cue") {
+      cue[c.deck === "A" ? 0 : 1] = c.on;
+      return ok(null);
+    }
+    if (c.type === "fx" || c.type === "fxParams") return ok(null);
     const d = decks[c.deck];
     const jump = (t: number): void => {
       d.position = Math.max(0, t);
@@ -570,6 +576,8 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         duckDb: duckOn ? -12 : 0,
         padsPlaying,
         samplerDuckDb: padsPlaying !== 0 ? -9 : 0,
+        cue: [cue[0], cue[1]],
+        outputChannels: 2,
       };
       return resolve(ok(snap));
     },

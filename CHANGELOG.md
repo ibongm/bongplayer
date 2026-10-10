@@ -6,6 +6,22 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:14 — M11: Effect panel on the decks, headphone CUE in the mixer
+- **Added:** each deck has an effect panel: OFF · ECHO · FLANGER · FILTER, with STR and SPD
+  knobs (tooltips say what SPD means: "1 beat" for the echo, "2.0 s per sweep" otherwise).
+  The echo follows the deck's tempo by itself (BPM × pitch, checked every 50 ms).
+- **Added:** a 🎧 CUE button on each mixer channel (Ctrl+Shift+1 / 2) and a CUE/MST knob
+  under the master meter (headphones: cued deck ↔ master). The CUE buttons show what the
+  engine is doing. When the sound card has only 2 channels the mixer says "no headphone
+  out on this card".
+- **Decision:** while LOCK is on, the headphone controls work like the volume controls (they
+  change nothing the audience hears); effects are blocked like other music controls.
+- **Tests:** 4 new screen tests (87 in total) and 1 app test pass: effect picker and knobs
+  send the right commands to the right deck; CUE follows the engine, Ctrl+Shift+1 / 2 toggle
+  it; the CUE/MST knob; the "no headphone out" note appears only on a 2-channel card.
+- **Not verified:** headphones on the real DDJ-400 (needs the M2 spike), how effects sound.
+- **Commit:** pending
+
 ### 2026-10-10 12:10 — M11: Deck effects and headphone cue in the audio engine
 - **Added:** one effect per deck with two knobs, STR (strength) and SPD (speed):
   **Echo** (repeats on the beat: ¼, ½, ¾, 1 or 2 beats, following the track's tempo),
@@ -24,7 +40,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   a 4-channel card gets the headphones on channels 3–4, a stereo card just the master.
 - **Not verified:** whether Windows gives BongPlayer the DDJ-400's channels 3–4 (the M2
   headphone spike, `channel_test`, answers this on the bar PC); how the effects sound.
-- **Commit:** pending
+- **Commit:** e8f334e
 
 ### 2026-10-10 12:04 — M10: Skins and the rest of Settings
 - **Added:** four skins in Settings → **Appearance**: Midnight Slate (the default dark glass),

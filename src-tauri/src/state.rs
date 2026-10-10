@@ -262,6 +262,8 @@ pub struct AppState {
     pub automix: Mutex<Automix>,
     pub lock: Mutex<LockState>,
     pub sampler: Mutex<[crate::sampler::PadSlot; engine::sampler::PADS]>,
+    /// Beat length last told to each deck's effect (seconds).
+    fx_beat: Mutex<[f64; 2]>,
 }
 
 /// A queue entry with its track, for display.
@@ -295,6 +297,7 @@ impl AppState {
             automix: Mutex::new(Automix::default()),
             lock: Mutex::new(LockState::default()),
             sampler: Mutex::new(Default::default()),
+            fx_beat: Mutex::new([0.0; 2]),
         }
     }
 
@@ -480,6 +483,31 @@ impl AppState {
             .spawn(move || {
                 let _ = lib.lookup_track(track_id, &library::lookup::NetFetcher::default());
             });
+    }
+
+    /// Keeps each deck's echo on the beat: tells the engine the current beat length (track BPM
+    /// × tempo) when it changes by more than 0.2 %. Called every 50 ms.
+    pub fn fx_beat_tick(&self) {
+        for deck in [DeckName::A, DeckName::B] {
+            let Some(bpm) = self.track_bpm(deck).filter(|b| *b > 0.0) else {
+                continue;
+            };
+            let tempo = self.status.deck(deck.id()).tempo();
+            if !tempo.is_finite() || tempo <= 0.0 {
+                continue;
+            }
+            let seconds = 60.0 / (bpm * tempo);
+            let mut last = lock(&self.fx_beat);
+            let old = last[deck.index()];
+            if (seconds - old).abs() > old * 0.002 {
+                last[deck.index()] = seconds;
+                drop(last);
+                let _ = self.send(Command::SetFxBeat {
+                    deck: deck.id(),
+                    seconds,
+                });
+            }
+        }
     }
 
     /// Track BPM of the deck's track (analysed, tagged or manual).

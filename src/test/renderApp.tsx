@@ -47,7 +47,7 @@ function resetStores(): void {
   tableColumns.set(DEFAULT_COLUMNS);
   skins.set({ current: DEFAULT_SKIN, custom: [] });
   applySkin(skins.get());
-  mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
+  mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0, cueMix: 0 });
 }
 
 export async function renderApp(options: MockOptions = {}): Promise<{ mock: Mock; view: RenderResult }> {

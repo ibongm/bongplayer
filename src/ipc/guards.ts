@@ -242,7 +242,11 @@ export function isStatusSnapshot(v: unknown): v is StatusSnapshot {
     isBool(v.duckOn) &&
     isNumber(v.duckDb) &&
     isNumber(v.padsPlaying) &&
-    isNumber(v.samplerDuckDb)
+    isNumber(v.samplerDuckDb) &&
+    Array.isArray(v.cue) &&
+    v.cue.length === 2 &&
+    v.cue.every(isBool) &&
+    isNumber(v.outputChannels)
   );
 }
 

@@ -2,7 +2,7 @@
 // cache, and helpers for 60 fps drawing.
 
 import { backend } from "../ipc/backend";
-import type { DeckName, UiCommand, Waveform } from "../ipc/types";
+import type { DeckName, FxName, UiCommand, Waveform } from "../ipc/types";
 import { notify, status } from "./app";
 import { createStore } from "./store";
 
@@ -45,6 +45,10 @@ export interface ChannelState {
   killLow: boolean;
   filter: number;
   fader: number;
+  /** Deck effect and its STR / SPD knobs (0 … 1). */
+  fx: FxName;
+  fxStr: number;
+  fxSpd: number;
 }
 
 export interface MixerState {
@@ -52,6 +56,8 @@ export interface MixerState {
   B: ChannelState;
   crossfader: number;
   master: number;
+  /** Headphones: 0 = cued decks only … 1 = master only. */
+  cueMix: number;
 }
 
 export const channelDefaults: ChannelState = {
@@ -64,6 +70,9 @@ export const channelDefaults: ChannelState = {
   killLow: false,
   filter: 0,
   fader: 1,
+  fx: "off",
+  fxStr: 0.5,
+  fxSpd: 0.5,
 };
 
 export const mixer = createStore<MixerState>({
@@ -71,6 +80,7 @@ export const mixer = createStore<MixerState>({
   B: { ...channelDefaults },
   crossfader: 0.5,
   master: 0,
+  cueMix: 0,
 });
 
 /** Sends an engine command; shows the error if it fails. Returns whether it worked. */
@@ -115,12 +125,25 @@ export function setChannel<K extends keyof ChannelState>(
     case "fader":
       void send({ type: "fader", deck, position: ch.fader });
       break;
+    case "fx":
+      void send({ type: "fx", deck, kind: ch.fx }, `Effect deck ${deck}`);
+      void send({ type: "fxParams", deck, strength: ch.fxStr, speed: ch.fxSpd });
+      break;
+    case "fxStr":
+    case "fxSpd":
+      void send({ type: "fxParams", deck, strength: ch.fxStr, speed: ch.fxSpd });
+      break;
   }
 }
 
 export function setCrossfader(position: number): void {
   mixer.set((m) => ({ ...m, crossfader: position }));
   void send({ type: "crossfader", position });
+}
+
+export function setCueMix(mix: number): void {
+  mixer.set((m) => ({ ...m, cueMix: mix }));
+  void send({ type: "cueMix", mix }, "Headphones");
 }
 
 export function setMaster(db: number): void {

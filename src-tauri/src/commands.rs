@@ -449,6 +449,48 @@ pub enum UiCommand {
     LimiterCeiling {
         db: f32,
     },
+    /// The deck's effect.
+    Fx {
+        deck: DeckName,
+        kind: FxName,
+    },
+    /// STR and SPD of the deck's effect, 0 … 1.
+    FxParams {
+        deck: DeckName,
+        strength: f32,
+        speed: f32,
+    },
+    /// Headphone cue for a deck.
+    Cue {
+        deck: DeckName,
+        on: bool,
+    },
+    /// Headphones: 0 = cued decks only … 1 = master only.
+    CueMix {
+        mix: f32,
+    },
+}
+
+/// Deck effects as the screen names them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FxName {
+    Off,
+    Echo,
+    Flanger,
+    Filter,
+}
+
+impl FxName {
+    pub fn kind(self) -> engine::fx::FxKind {
+        use engine::fx::FxKind;
+        match self {
+            Self::Off => FxKind::Off,
+            Self::Echo => FxKind::Echo,
+            Self::Flanger => FxKind::Flanger,
+            Self::Filter => FxKind::Filter,
+        }
+    }
 }
 
 /// Translates a UI command into an engine command (positions in seconds → track frames).
@@ -565,6 +607,24 @@ pub fn to_engine(state: &AppState, cmd: UiCommand) -> AppResult<Command> {
         UiCommand::Crossfader { position } => Command::SetCrossfader(position),
         UiCommand::Master { db } => Command::SetMasterDb(db),
         UiCommand::LimiterCeiling { db } => Command::SetLimiterCeilingDb(db),
+        UiCommand::Fx { deck, kind } => Command::SetFx {
+            deck: deck.id(),
+            kind: kind.kind(),
+        },
+        UiCommand::FxParams {
+            deck,
+            strength,
+            speed,
+        } => Command::SetFxParams {
+            deck: deck.id(),
+            strength,
+            speed,
+        },
+        UiCommand::Cue { deck, on } => Command::SetCue {
+            deck: deck.id(),
+            on,
+        },
+        UiCommand::CueMix { mix } => Command::SetCueMix(mix),
     })
 }
 
@@ -572,7 +632,11 @@ pub fn to_engine(state: &AppState, cmd: UiCommand) -> AppResult<Command> {
 /// Volume controls stay usable while locked (if allowed); everything else is music.
 pub fn lock_action(cmd: &UiCommand) -> Action {
     match cmd {
-        UiCommand::Fader { .. } | UiCommand::Master { .. } => Action::Volume,
+        // The headphones change nothing the audience hears.
+        UiCommand::Fader { .. }
+        | UiCommand::Master { .. }
+        | UiCommand::Cue { .. }
+        | UiCommand::CueMix { .. } => Action::Volume,
         _ => Action::Music,
     }
 }

@@ -6,7 +6,7 @@ import { backend } from "../../ipc/backend";
 import type { DeckName, MasterAction } from "../../ipc/types";
 import { notify, status } from "../../state/app";
 import { useStore } from "../../state/store";
-import { channelDefaults, context2d, cssColor, mixer, onFrame, setChannel, setCrossfader, setMaster } from "../../state/ui";
+import { channelDefaults, context2d, cssColor, mixer, onFrame, send, setChannel, setCrossfader, setCueMix, setMaster } from "../../state/ui";
 import { Fader } from "../controls/Fader";
 import { Knob } from "../controls/Knob";
 import { LyricsView } from "../Lyrics";
@@ -123,6 +123,7 @@ function Channel({ deck }: { deck: DeckName }): ReactNode {
           setChannel(deck, "filter", Math.abs(v) < 0.02 ? 0 : v);
         }}
       />
+      <CueButton deck={deck} />
       <div className="flex items-end gap-1">
         <Meter source={deck === "A" ? 0 : 1} label={`Deck ${deck} level`} />
         <Fader
@@ -149,6 +150,50 @@ function masterTransport(action: MasterAction): void {
     .then((r) => {
       if (!r.ok) notify("error", `${action.toUpperCase()}: ${r.error}`);
     });
+}
+
+function CueButton({ deck }: { deck: DeckName }): ReactNode {
+  const on = useStore(status, (s) => s?.cue[deck === "A" ? 0 : 1] ?? false);
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={`Headphone cue deck ${deck}`}
+      title={`CUE ${deck}: hear deck ${deck} in the headphones, before its fader (${deck === "A" ? "Ctrl+Shift+1" : "Ctrl+Shift+2"})`}
+      className={`h-6 w-12 rounded text-[11px] font-bold ${on ? "bg-accent text-bg" : "bg-surface-raised text-muted hover:bg-accent/30"}`}
+      onClick={() => {
+        void send({ type: "cue", deck, on: !on }, "Headphones");
+      }}
+    >
+      🎧 {deck}
+    </button>
+  );
+}
+
+function CueMixKnob(): ReactNode {
+  const mix = useStore(mixer, (m) => m.cueMix);
+  const channels = useStore(status, (s) => s?.output.running ? s.outputChannels : 0);
+  return (
+    <div className="flex flex-col items-center">
+      <Knob
+        label="CUE/MST"
+        size={32}
+        value={mix}
+        min={0}
+        max={1}
+        defaultValue={0}
+        steps={20}
+        format={(v) => (v < 0.01 ? "cue only" : v > 0.99 ? "master only" : `${Math.round((1 - v) * 100)} % cue`)}
+        hint="headphones: cued decks ↔ master"
+        onChange={setCueMix}
+      />
+      {channels > 0 && channels < 4 && (
+        <span className="max-w-24 text-center text-[11px] leading-tight text-muted" title="Headphones need a sound card with 4 channels, like the DDJ-400 (channels 3–4)">
+          no headphone out on this card
+        </span>
+      )}
+    </div>
+  );
 }
 
 function MasterTransport(): ReactNode {
@@ -254,6 +299,7 @@ export function Mixer(): ReactNode {
             <div className="flex h-40 gap-1">
               <Meter source={2} label="Master level" />
             </div>
+            <CueMixKnob />
           </div>
           <Channel deck="B" />
         </div>

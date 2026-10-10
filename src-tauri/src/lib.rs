@@ -88,6 +88,7 @@ fn start_automix_thread(state: Arc<AppState>) {
                 let now = started.elapsed().as_secs_f64();
                 n = n.wrapping_add(1);
                 state.automix_tick(now, n.wrapping_mul(0x9E37_79B9));
+                state.fx_beat_tick();
                 if now - last_save >= 5.0 {
                     last_save = now;
                     if let Err(e) = state.automix_save() {

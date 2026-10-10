@@ -37,6 +37,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl+Y", "Lyrics drawer (LRC)"],
   ["Ctrl+P", "Sampler strip"],
   ["Alt+1 … 8", "Play sampler pad 1–8"],
+  ["Ctrl+Shift+1 / 2", "Headphone cue deck A / B"],
 ];
 
 function Clock(): ReactNode {

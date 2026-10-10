@@ -123,7 +123,13 @@ export type UiCommand =
   | { type: "sync"; deck: DeckName }
   | { type: "crossfader"; position: number }
   | { type: "master"; db: number }
-  | { type: "limiterCeiling"; db: number };
+  | { type: "limiterCeiling"; db: number }
+  | { type: "fx"; deck: DeckName; kind: FxName }
+  | { type: "fxParams"; deck: DeckName; strength: number; speed: number }
+  | { type: "cue"; deck: DeckName; on: boolean }
+  | { type: "cueMix"; mix: number };
+
+export type FxName = "off" | "echo" | "flanger" | "filter";
 
 export interface DeckSnapshot {
   loaded: boolean;
@@ -256,6 +262,10 @@ export interface StatusSnapshot {
   padsPlaying: number;
   /** Current sampler ducking of the music in dB (0 = none). */
   samplerDuckDb: number;
+  /** Headphone cue on deck A / B. */
+  cue: [boolean, boolean];
+  /** Channels of the sound card in use (4+ = headphones on channels 3–4). */
+  outputChannels: number;
 }
 
 export interface LockInfo {

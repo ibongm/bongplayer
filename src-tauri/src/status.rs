@@ -97,6 +97,10 @@ pub struct StatusSnapshot {
     pub pads_playing: u8,
     /// Current sampler ducking of the music in dB (0 = none).
     pub sampler_duck_db: f32,
+    /// Headphone cue on deck A / B.
+    pub cue: [bool; 2],
+    /// Channels of the sound card in use (4+ = headphones on channels 3–4).
+    pub output_channels: u32,
 }
 
 pub fn snapshot(state: &AppState) -> StatusSnapshot {
@@ -227,6 +231,8 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
         duck_db: state.status.duck_db(),
         pads_playing: state.status.pads_playing(),
         sampler_duck_db: state.status.sampler_duck_db(),
+        cue: state.status.cue(),
+        output_channels: state.status.output_channels(),
     }
 }
 
