@@ -809,6 +809,26 @@ pub async fn lookup_track(
     .await
 }
 
+// ----- lyrics (karaoke) -----
+
+/// Lyrics of a track: its .lrc file, its tags, or LRCLIB when internet lookup is on.
+/// `None` when there are none.
+#[tauri::command]
+pub async fn track_lyrics(
+    state: St<'_>,
+    track_id: i64,
+) -> AppResult<Option<library::lyrics::Lyrics>> {
+    let online = state.internet_lookup_on();
+    blocking(&state, move |s| {
+        // A separate connection: an LRCLIB request must not hold up the library.
+        let lib = s.background_library()?;
+        let net = library::lookup::NetFetcher::default();
+        let fetcher: Option<&dyn library::lookup::Fetcher> = if online { Some(&net) } else { None };
+        lib.lyrics(track_id, fetcher).map_err(err)
+    })
+    .await
+}
+
 // ----- radio -----
 
 /// Stations offered ready-made. Addresses checked on 2026-10-10 (see CHANGELOG).

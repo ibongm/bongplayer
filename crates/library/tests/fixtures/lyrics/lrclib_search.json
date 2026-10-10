@@ -1,0 +1,24 @@
+[
+  {
+    "id": 101,
+    "name": "Test Song (Live)",
+    "trackName": "Test Song",
+    "artistName": "Test Artist",
+    "albumName": "Live at Nowhere",
+    "duration": 312.0,
+    "instrumental": false,
+    "plainLyrics": "This is the live one\nWith the wrong length",
+    "syncedLyrics": "[00:05.00] This is the live one\n[00:09.00] With the wrong length"
+  },
+  {
+    "id": 102,
+    "name": "Test Song",
+    "trackName": "Test Song",
+    "artistName": "Test Artist",
+    "albumName": "First Album",
+    "duration": 70.0,
+    "instrumental": false,
+    "plainLyrics": "Invented words for a test\nNothing here is a real song\nThe end",
+    "syncedLyrics": "[00:02.00] Invented words for a test\n[00:06.50] Nothing here is a real song\n[00:12.25] The end\n[00:15.00] "
+  }
+]

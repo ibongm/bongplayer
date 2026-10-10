@@ -77,7 +77,8 @@ fn mb_pace() {
     *last = Some(Instant::now());
 }
 
-fn enc(s: &str) -> String {
+/// Percent-encodes a query value.
+pub(crate) fn enc(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {

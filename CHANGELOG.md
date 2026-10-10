@@ -6,6 +6,22 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:46 — M8: Lyrics — LRC reader and where lyrics come from
+- **Added:** a reader for LRC lyric files (timed lines). It understands every common way of
+  writing the time ([1:06], [00:02.5], [00:03.25], [00:04.125], [00:05:50]), several times on
+  one line (a chorus that repeats), the [offset:…] tag that moves all lines earlier or later,
+  and strips word-by-word timings. Title/artist tags inside the file are ignored.
+- **Added:** lyrics for a track are looked for in this order: a `.lrc` file with the same
+  name beside the song, lyrics stored in the song's tags, and — only when internet lookup is
+  ON — LRCLIB (lrclib.net). Timed lyrics are preferred over plain text. LRCLIB is asked once
+  per track (also "not found" is remembered); only artist and title are sent, and the answer
+  about as long as the song is chosen (a 5-minute live version is skipped for a 70-s song).
+- **Tests:** 5 new tests pass. The LRCLIB answers are in LRCLIB's format but with invented
+  words — real song lyrics are copyrighted and are not stored in the repository.
+- **Not verified:** real `.lrc` files from the owner's collection, and LRCLIB live (owner,
+  with the setting on).
+- **Commit:** pending
+
 ### 2026-10-10 11:38 — M7: Info tab, covers on screen, Settings → Internet
 - **Added:** an **Info** tab beside Automix in the dock (Ctrl+I switches). It shows the
   selected track's cover (large), title, artist, remix, rating, album, year, genre, length,
@@ -22,7 +38,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   backend refuses); after switching it on, a lookup fills the empty album; the table asks
   only for covers of tracks that have one, and only small ones.
 - **Not verified:** how the covers look with real album art (owner).
-- **Commit:** pending
+- **Commit:** 65d347b
 
 ### 2026-10-10 11:33 — M7: App — cover pictures and the internet lookup switch
 - **Added:** the app can now hand cover pictures (small or large) to the screen, and look a

@@ -6,6 +6,7 @@ pub mod browse;
 pub mod covers;
 pub mod db;
 pub mod lookup;
+pub mod lyrics;
 pub mod m3u;
 pub mod ops;
 pub mod stations;

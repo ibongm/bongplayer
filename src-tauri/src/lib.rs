@@ -159,6 +159,7 @@ pub fn run() {
             queue_add_station,
             track_cover,
             lookup_track,
+            track_lyrics,
             queue_list,
             queue_add,
             queue_add_paths,
