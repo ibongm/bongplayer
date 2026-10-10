@@ -12,7 +12,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   minimise / maximise / close, tooltips). All M0 acceptance tests now pass.
 - **Tests:** owner's manual check on a real PC (reported "Everything works").
 - **Not verified:** none for M0.
-- **Commit:** pending
+- **Commit:** 1476a82
 
 ### 2026-10-10 04:24 — M0: Automated M0 tests ticked in the plan
 - **Changed:** `PLAN.md` — the two automated M0 tests are ticked: the project skeleton with
