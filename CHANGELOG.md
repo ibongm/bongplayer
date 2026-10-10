@@ -6,6 +6,18 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:22 — M2–M6: Automated tests ticked in the plan after green CI
+- **Changed:** `PLAN.md` — 20 automated M2–M6 acceptance tests ticked, plus "radio works as a
+  deck source and as an Automix item". Not ticked: the BPM/key regression list (needs the
+  owner's real songs and values; the speed benchmark itself passes) and drag & drop (its
+  automated part passes, the manual part is open). All manual (M) checks stay unticked.
+- **Changed:** `PLAN.md` open items — the real stream addresses of both old stations are
+  recorded; dependency list says `ureq` (radio) instead of `reqwest`.
+- **Tests:** GitHub Actions run 38028252446 on `m2-m11` passed both jobs (checks + installer):
+  59 screen tests and every Rust test, including the analysis benchmark on GitHub's 4-core PC.
+- **Not verified:** the manual checks listed in PLAN.md for M2–M6 (owner).
+- **Commit:** pending
+
 ### 2026-10-10 07:39 — M6: Radio strip and live decks on screen
 - **Added:** RADIO button (Ctrl+R) opens the Radio strip under the top bar: choose a saved
   station or a preset (Bravo (Live), Radio Dalmacija), edit name and address, **Test** (checks

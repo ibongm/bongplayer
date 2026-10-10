@@ -50,7 +50,8 @@ windowed-sinc interpolator (M1 decision instead of `rubato`: it also serves pitc
 scratch), `rtrb` (lock-free command queue, M1). Still to confirm during spikes:
 a time-stretcher (Signalsmith Stretch or Rubber Band — chosen by listening test in M2),
 `cpal` (WASAPI output, added in M1; ASIO only if the headphone spike in M2 needs it), `midir` (MIDI),
-`rusqlite`, `reqwest` (radio, internet lookup).
+`rusqlite` (M3), `ureq` with rustls and the Windows certificate store (radio, internet lookup;
+chosen in M6 instead of `reqwest`).
 
 ## 2. Layout (reference: owner's screenshot + VirtualDJ-style structure)
 
@@ -140,50 +141,54 @@ Three views, switched by tabs at the top: **STANDARD**, **DECKS** (larger decks)
 - [x] A: Output device lost → engine reopens default device without panicking.
 
 ### M2 — Decks, pitch, key lock, scratch, output devices
-- A: ±8 / 16 / 50 % pitch changes speed correctly; key lock keeps pitch within 5 cents.
-- A: Scrub input (jog) produces audio that follows position, forward and reverse.
-- A: Device hot-plug: preferred device appears → switch; disappears → fall back; no gap > 1 s.
-- M: Listening test of stretcher candidates; pick one.
-- M: **Headphone-cue spike:** can the app drive the DDJ-400 headphone channels (WASAPI vs ASIO)? Result decides M11 scope.
-- M: Platter scratch feels right on mouse.
+- [x] A: ±8 / 16 / 50 % pitch changes speed correctly; key lock keeps pitch within 5 cents.
+- [x] A: Scrub input (jog) produces audio that follows position, forward and reverse.
+- [x] A: Device hot-plug: preferred device appears → switch; disappears → fall back; no gap > 1 s.
+- [ ] M: Listening test of stretcher candidates; pick one.
+- [ ] M: **Headphone-cue spike:** can the app drive the DDJ-400 headphone channels (WASAPI vs ASIO)? Result decides M11 scope.
+- [ ] M: Platter scratch feels right on mouse.
 
 ### M3 — Library, selection, menus, drag & drop, crates
-- A: Folder tree lists drives (incl. USB), expands lazily; a 50,000-file library opens < 1 s.
-- A: Tag cache hit avoids re-reading files; table virtualised.
-- A: Analysis benchmark: ≥ 5 tracks/s; regression list of BPM/key values the old app got wrong
+- [x] A: Folder tree lists drives (incl. USB), expands lazily; a 50,000-file library opens < 1 s.
+- [x] A: Tag cache hit avoids re-reading files; table virtualised.
+- [ ] A: Analysis benchmark: ≥ 5 tracks/s; regression list of BPM/key values the old app got wrong
   (owner confirms true values: e.g. Come Together, Smells Like Teen Spirit, Johnny B. Goode).
-- A: **Multi-select:** click, Ctrl+click, Shift+click, Ctrl+A, Esc; selection count shown.
-- A: **Context menu on a selection:** Load A / Load B / Add to Automix / Add to crate / Batch Operations ▸ /
+  *Status: benchmark passes (70 tracks/s here, also on CI); synthetic-music regression tests for
+  82 / 117 / 168 BPM pass; the real-song list still needs the owner’s files and values.*
+- [x] A: **Multi-select:** click, Ctrl+click, Shift+click, Ctrl+A, Esc; selection count shown.
+- [x] A: **Context menu on a selection:** Load A / Load B / Add to Automix / Add to crate / Batch Operations ▸ /
   File Operations ▸ (Show in Explorer, etc.) / Mark as Played / Remove — applied to all selected.
-- A: **Submenus open on hover and with the → key**, close on Esc / leaving.
-- A+M: **Drag & drop**, each of:
+- [x] A: **Submenus open on hover and with the → key**, close on Esc / leaving.
+- [ ] A+M: **Drag & drop**, each of:
   - table row(s) → Deck A, Deck B, Automix queue, a crate in the explorer
   - Explorer file(s) → Deck A, Deck B, Automix queue
   - Explorer folder → folder tree (navigates) and Automix queue (enqueues contents)
   - reorder rows inside the Automix queue
-- A: Row count never drops to 0 after a menu action.
-- A: Crates & playlists create / rename / delete; `.m3u` / `.m3u8` import (relative + absolute paths, missing files flagged).
+  *Status: the automated part passes (every case above, incl. native Explorer drops); the manual
+  check with the real mouse and Explorer on the bar PC is still open.*
+- [x] A: Row count never drops to 0 after a menu action.
+- [x] A: Crates & playlists create / rename / delete; `.m3u` / `.m3u8` import (relative + absolute paths, missing files flagged).
 
 ### M4 — Deck & mixer UI, waveforms, hot cues, loops
 - Three views, top bar, collapsible strips, tooltips everywhere, Settings shell (⚙) with the Audio tab.
-- A: Meter values from the engine match offline-render RMS.
-- A: Hot cues 1–8 (set / jump / clear, saved per track); auto-loops 1–32, IN / OUT, exit loop; pitch bend.
-- M: Scrolling beat waveforms at 60 fps for **both** decks; overview waveform seeks on click.
-- A: A deck never shows an indefinite "analyzing" state (timeout → error message).
+- [x] A: Meter values from the engine match offline-render RMS.
+- [x] A: Hot cues 1–8 (set / jump / clear, saved per track); auto-loops 1–32, IN / OUT, exit loop; pitch bend.
+- [ ] M: Scrolling beat waveforms at 60 fps for **both** decks; overview waveform seeks on click.
+- [x] A: A deck never shows an indefinite "analyzing" state (timeout → error message).
 
 ### M5 — Automix, Lock, DUCK, simple daytime view
-- A: Transitions (Smooth, Bass Swap, Cut, Echo-Out) render correctly offline; no gap in Smooth.
-- A: Trigger threshold / crossfade time honoured; Loop, Shuffle, Auto-remove behave as labelled.
-- A: Missing / corrupt next track is skipped; queue continues.
-- A: Queue and position restored after simulated crash.
-- A: Lock blocks the listed actions; unlock via PIN / hold.
-- M: 12-hour soak test on the bar PC with a real playlist.
+- [x] A: Transitions (Smooth, Bass Swap, Cut, Echo-Out) render correctly offline; no gap in Smooth.
+- [x] A: Trigger threshold / crossfade time honoured; Loop, Shuffle, Auto-remove behave as labelled.
+- [x] A: Missing / corrupt next track is skipped; queue continues.
+- [x] A: Queue and position restored after simulated crash.
+- [x] A: Lock blocks the listed actions; unlock via PIN / hold.
+- [ ] M: 12-hour soak test on the bar PC with a real playlist.
 
 ### M6 — Radio
-- A: Fake local Icecast server (in tests) covers: plain MP3, AAC, redirect, `.pls`, `.m3u`, ICY title changes, mid-stream disconnect → reconnect.
-- A: HTML page URL → clear "this is a web page, not a stream" message.
-- M: Both stations from the old app play and show song titles (see section 7).
-- Radio works as a deck source and as an Automix item.
+- [x] A: Fake local Icecast server (in tests) covers: plain MP3, AAC, redirect, `.pls`, `.m3u`, ICY title changes, mid-stream disconnect → reconnect.
+- [x] A: HTML page URL → clear "this is a web page, not a stream" message.
+- [ ] M: Both stations from the old app play and show song titles (see section 7).
+- [x] Radio works as a deck source and as an Automix item (app tests with a local server).
 
 ### M7 — Info panel, covers, internet lookup
 - A: Embedded art and `folder.jpg` shown with no internet; covers cached.
@@ -225,8 +230,10 @@ Three views, switched by tabs at the top: **STANDARD**, **DECKS** (larger decks)
 
 - Radio test stations (from the old app):
   - `https://streaming.bravo.hr/player/player.html?stream=0` — a **web page URL**, not an audio
-    stream; the real stream URL needs to be discovered (M6).
-  - `http://live.radiodalmacija.hr/radio.php` — likely redirects to the real stream.
+    stream. *Found in M6:* the real stream is `https://relay1.social3.hr/radio/8310/radio.mp3`
+    (decodes with BongPlayer; listening check open).
+  - `http://live.radiodalmacija.hr/radio.php` — also a **web page**. *Found in M6:* the real
+    stream is `http://shoutcast.pondi.hr:8000/listen.pls` (decodes; listening check open).
 - Sound card model on the bar PC, and how the DDJ-400 appears in Windows (one device or several,
   Pioneer ASIO driver installed?) — owner to check.
 - Confirm DUCK meaning (lower music for announcements).
