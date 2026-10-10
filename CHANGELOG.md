@@ -6,6 +6,30 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:54 — M2: Pitch, key lock, pitch bend and scratching on the decks
+- **Decision (owner, 2026-10-10):** after M1 the owner checked `play_file`: music played fine
+  (the unplug test was not tried). The owner then asked to build M2–M11 in one go on one branch
+  (`m2-m11`) without stopping for plan approval at each milestone, chose **Signalsmith Stretch**
+  (MIT) for key lock instead of Rubber Band (GPL), and allowed libraries with permissive
+  licences to be added without asking first.
+- **Added:** pitch fader with ranges ±8 %, ±16 % and ±50 %; pitch changes the speed (and the
+  musical pitch, like a turntable). Pitch bend nudges the speed temporarily (up to ±10 %).
+- **Added:** key lock: change the tempo without changing the musical key. The position shown is
+  what you actually hear (the key-lock processing delay is compensated).
+- **Added:** scratching: while the platter is held, the track follows the hand forwards and
+  backwards like a record; letting go continues playback from there.
+- **Decision:** Signalsmith Stretch is included as source code (`crates/stretch`, MIT licence
+  files kept) instead of via its Rust package, because that package needs an extra compiler
+  tool (LLVM) that the build machines don't have.
+- **Tests:** 7 new deck tests and 1 pitch-shifter test pass — at ±8/16/50 % the deck moves
+  exactly (1 ± pitch) × as fast and the tone moves with it (within 2 cents); with key lock the
+  tone stays at 440 Hz within 5 cents at every setting from −50 % to +50 % (worst 4.4 cents)
+  and is heard on time (0 ms error); scratching follows the hand forward and backward within
+  2 frames; pitch bend works and releases.
+- **Not verified:** how key lock *sounds* on real music (owner listening test, PLAN M2), and how
+  scratching *feels* with the mouse (needs the deck screen, M4).
+- **Commit:** pending
+
 ### 2026-10-10 05:30 — M1: All engine tests pass — M1 automated tests ticked
 - **Changed:** `PLAN.md` — all 7 M1 acceptance tests ticked (all are automated). The
   dependency list now records the M1 decisions: `symphonia`, `cpal` and `rtrb` added; our own

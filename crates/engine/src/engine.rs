@@ -57,6 +57,32 @@ pub enum Command {
         deck: DeckId,
         slot: usize,
     },
+    /// Pitch as a fraction (+0.08 = 8 % faster), clamped to the deck's range.
+    SetPitch {
+        deck: DeckId,
+        pitch: f64,
+    },
+    /// 0.08, 0.16 or 0.50.
+    SetPitchRange {
+        deck: DeckId,
+        range: f64,
+    },
+    /// Temporary nudge, ±0.10 at most; send 0 to release.
+    SetBend {
+        deck: DeckId,
+        bend: f64,
+    },
+    SetKeyLock {
+        deck: DeckId,
+        on: bool,
+    },
+    ScratchStart(DeckId),
+    /// Move the record by this many track frames (negative = backwards).
+    ScratchMove {
+        deck: DeckId,
+        frames: f64,
+    },
+    ScratchEnd(DeckId),
     SetTrimDb {
         deck: DeckId,
         db: f32,
@@ -88,6 +114,11 @@ pub struct DeckStatus {
     playing: AtomicBool,
     ended: AtomicBool,
     cues: [AtomicU64; HOT_CUES],
+    tempo_bits: AtomicU64,
+    pitch_bits: AtomicU64,
+    pitch_range_bits: AtomicU64,
+    key_lock: AtomicBool,
+    scratching: AtomicBool,
 }
 
 impl DeckStatus {
@@ -104,6 +135,22 @@ impl DeckStatus {
     pub fn has_ended(&self) -> bool {
         self.ended.load(Ordering::Relaxed)
     }
+    /// Speed relative to normal (1.0 = original tempo).
+    pub fn tempo(&self) -> f64 {
+        f64::from_bits(self.tempo_bits.load(Ordering::Relaxed))
+    }
+    pub fn pitch(&self) -> f64 {
+        f64::from_bits(self.pitch_bits.load(Ordering::Relaxed))
+    }
+    pub fn pitch_range(&self) -> f64 {
+        f64::from_bits(self.pitch_range_bits.load(Ordering::Relaxed))
+    }
+    pub fn key_lock(&self) -> bool {
+        self.key_lock.load(Ordering::Relaxed)
+    }
+    pub fn is_scratching(&self) -> bool {
+        self.scratching.load(Ordering::Relaxed)
+    }
     pub fn hot_cue(&self, slot: usize) -> Option<f64> {
         let v = f64::from_bits(self.cues.get(slot)?.load(Ordering::Relaxed));
         (!v.is_nan()).then_some(v)
@@ -115,6 +162,15 @@ impl DeckStatus {
         self.loaded.store(deck.track().is_some(), Ordering::Relaxed);
         self.playing.store(deck.is_playing(), Ordering::Relaxed);
         self.ended.store(deck.has_ended(), Ordering::Relaxed);
+        self.tempo_bits
+            .store(deck.tempo().to_bits(), Ordering::Relaxed);
+        self.pitch_bits
+            .store(deck.pitch().to_bits(), Ordering::Relaxed);
+        self.pitch_range_bits
+            .store(deck.pitch_range().to_bits(), Ordering::Relaxed);
+        self.key_lock.store(deck.key_lock(), Ordering::Relaxed);
+        self.scratching
+            .store(deck.is_scratching(), Ordering::Relaxed);
         for (slot, c) in self.cues.iter().enumerate() {
             c.store(
                 deck.hot_cue(slot).unwrap_or(f64::NAN).to_bits(),
@@ -387,6 +443,17 @@ impl Engine {
                 self.decks[deck as usize].jump_to_hot_cue(slot);
             }
             Command::ClearHotCue { deck, slot } => self.decks[deck as usize].clear_hot_cue(slot),
+            Command::SetPitch { deck, pitch } => self.decks[deck as usize].set_pitch(pitch),
+            Command::SetPitchRange { deck, range } => {
+                self.decks[deck as usize].set_pitch_range(range);
+            }
+            Command::SetBend { deck, bend } => self.decks[deck as usize].set_bend(bend),
+            Command::SetKeyLock { deck, on } => self.decks[deck as usize].set_key_lock(on),
+            Command::ScratchStart(deck) => self.decks[deck as usize].scratch_start(),
+            Command::ScratchMove { deck, frames } => {
+                self.decks[deck as usize].scratch_move(frames);
+            }
+            Command::ScratchEnd(deck) => self.decks[deck as usize].scratch_end(),
             Command::SetTrimDb { deck, db } => {
                 s.trim_db[deck as usize] = db;
                 self.mixer.strips[deck as usize].set_trim_db(db);
