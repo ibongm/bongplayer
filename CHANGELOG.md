@@ -6,6 +6,35 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:20 — M11: Pioneer DDJ-400 support (MIDI)
+- **Added:** the DDJ-400 is found automatically whenever it is plugged in (checked every 2
+  seconds) and let go when it is unplugged. What it does:
+  - PLAY, CUE (SHIFT+CUE = back to the start), SYNC; the **jog wheels** scratch when the top
+    is touched, bend the tempo when the ring is turned (released as soon as it stops), move
+    finely when paused, and search fast with SHIFT;
+  - the **tempo fader** (within the deck's ±8 / 16 / 50 % range), TRIM, the 3 EQ knobs, the
+    channel faders, the FILTER knobs and the crossfader — the knobs on screen move along;
+  - the **headphone CUE** buttons; LOOP IN / OUT and RELOOP/EXIT;
+  - the **pads**: Hot Cue mode (press = set or jump, SHIFT = clear), Sampler mode (plays
+    sampler pads 1–8, SHIFT = stop), Beat Loop mode (¼ … 32 beats);
+  - the browse knob moves through the track list and LOAD loads the selected track.
+- **Added:** the controller's lights follow the app: PLAY / CUE, headphone CUE, loop
+  buttons, hot-cue pads that hold a cue, sampler pads with a sound, and the level meters.
+  Only lights that change are sent.
+- **Decision:** message numbers follow Pioneer's DDJ-400 MIDI layout, cross-checked against
+  the open-source Mixxx mapping (only the numbers were used, no code). Jog: 720 steps per
+  turn. Library `midir` (MIT; everything it uses is MIT/Apache) for MIDI.
+- **Security:** LOCK applies to the controller exactly as to the screen (pads that set cues
+  too); when something is refused the screen says so once per second, not for every step.
+- **Tests:** 6 new tests pass, using the exact bytes the controller sends (no hardware):
+  decoding of buttons, pads, jogs, browse and 14-bit knobs; knob / tempo / meter scaling;
+  play, tempo, crossfader, EQ, headphone CUE, hot-cue set / clear, sampler pad, scratching
+  0.25 s with the jog, LOAD and browse, all through the real engine; ring bend and release;
+  LOCK blocks with one notice; LEDs and "send only what changed".
+- **Not verified:** everything with the real DDJ-400 (owner) — especially the jog feel, the
+  direction of the tempo fader, and whether the pad / meter lights respond.
+- **Commit:** pending
+
 ### 2026-10-10 12:14 — M11: Effect panel on the decks, headphone CUE in the mixer
 - **Added:** each deck has an effect panel: OFF · ECHO · FLANGER · FILTER, with STR and SPD
   knobs (tooltips say what SPD means: "1 beat" for the echo, "2.0 s per sweep" otherwise).
@@ -20,7 +49,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   send the right commands to the right deck; CUE follows the engine, Ctrl+Shift+1 / 2 toggle
   it; the CUE/MST knob; the "no headphone out" note appears only on a 2-channel card.
 - **Not verified:** headphones on the real DDJ-400 (needs the M2 spike), how effects sound.
-- **Commit:** pending
+- **Commit:** c093f08
 
 ### 2026-10-10 12:10 — M11: Deck effects and headphone cue in the audio engine
 - **Added:** one effect per deck with two knobs, STR (strength) and SPD (speed):

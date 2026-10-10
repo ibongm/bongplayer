@@ -4,6 +4,7 @@
 pub mod automix;
 pub mod commands;
 pub mod lock;
+pub mod midi;
 pub mod sampler;
 pub mod state;
 pub mod status;
@@ -69,8 +70,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let _ = std::thread::Builder::new()
         .name("bong-sampler-restore".into())
         .spawn(move || pads.sampler_restore());
+    let midi_state = Arc::clone(&state);
     app.manage(state);
     status::start(app.handle().clone());
+    // The DDJ-400: found whenever it is plugged in; knob moves are passed to the screen.
+    let handle = app.handle().clone();
+    midi::start(midi_state, move |ev| {
+        use tauri::Emitter;
+        let _ = handle.emit(midi::MIDI_EVENT, ev);
+    });
     Ok(())
 }
 
@@ -170,6 +178,8 @@ pub fn run() {
             sampler_pads,
             library_info,
             skin_file_read,
+            midi_status,
+            midi_enable,
             sampler_load,
             sampler_clear,
             sampler_configure,

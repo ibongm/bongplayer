@@ -924,6 +924,23 @@ pub async fn skin_file_read(path: String) -> AppResult<String> {
         .map_err(err)?
 }
 
+// ----- DDJ-400 (MIDI) -----
+
+#[tauri::command]
+pub fn midi_status(state: St<'_>) -> crate::midi::MidiInfo {
+    state.midi_info()
+}
+
+/// Switches the controller support on or off (it reconnects within 2 seconds).
+#[tauri::command]
+pub fn midi_enable(state: St<'_>, on: bool) -> AppResult<()> {
+    lock(&state.library)
+        .set_setting(crate::midi::MIDI_ENABLED_KEY, if on { "1" } else { "0" })
+        .map_err(err)?;
+    lock(&state.midi).enabled = on;
+    Ok(())
+}
+
 // ----- sampler -----
 
 #[tauri::command]

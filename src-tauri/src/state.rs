@@ -264,6 +264,8 @@ pub struct AppState {
     pub sampler: Mutex<[crate::sampler::PadSlot; engine::sampler::PADS]>,
     /// Beat length last told to each deck's effect (seconds).
     fx_beat: Mutex<[f64; 2]>,
+    /// The DDJ-400 connection as Settings → MIDI shows it.
+    pub midi: Mutex<crate::midi::MidiInfo>,
 }
 
 /// A queue entry with its track, for display.
@@ -298,6 +300,7 @@ impl AppState {
             lock: Mutex::new(LockState::default()),
             sampler: Mutex::new(Default::default()),
             fx_beat: Mutex::new([0.0; 2]),
+            midi: Mutex::new(crate::midi::MidiInfo::default()),
         }
     }
 
