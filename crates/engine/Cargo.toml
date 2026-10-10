@@ -8,6 +8,8 @@ publish = false
 
 [dependencies]
 symphonia = { version = "0.6", features = ["mp3", "aac", "isomp4"] }
+cpal = "0.18"
+rtrb = "0.4"
 
 [dev-dependencies]
 hound = "3.5"

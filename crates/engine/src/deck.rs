@@ -47,6 +47,17 @@ impl Deck {
         }
     }
 
+    /// Switches to a new output rate (e.g. after the sound card changed), keeping the track,
+    /// position, transport and cues. Rebuilds the kernel, so it allocates: not on the audio thread.
+    pub fn set_out_rate(&mut self, out_rate: u32) {
+        self.out_rate = out_rate;
+        if let Some(track) = self.track.as_mut() {
+            let file_rate = track.buffer.sample_rate();
+            self.step = f64::from(file_rate) / f64::from(out_rate.max(1));
+            track.kernel = Arc::new(SincTable::for_rates(file_rate, out_rate));
+        }
+    }
+
     /// Puts a track on the deck, stopped at the start, and returns the previous one so the
     /// caller can free it off the audio thread. Hot cues are cleared (they belong to a track).
     pub fn load(&mut self, track: LoadedTrack) -> Option<LoadedTrack> {

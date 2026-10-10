@@ -6,6 +6,31 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:21 — M1: Realtime engine, sound-card output and recovery when the device is lost
+- **Added:** the complete engine: two decks → mixer → sound card. The app sends it commands
+  (load, play, pause, seek, hot cues, EQ, faders, crossfader, master, limiter) through a
+  lock-free queue; the engine reports positions back. While playing it never waits for locks,
+  never allocates memory and never touches files, so it cannot stutter because of the rest of the app.
+- **Added:** output to the default sound card (WASAPI). If the device disappears (unplugged,
+  driver reset) or stops asking for audio for 2 seconds, the engine reopens the default device
+  and carries on from the same position with all settings; if no device exists it keeps
+  retrying. Sound cards with 4 channels (like the DDJ-400) get the music on channels 1–2.
+- **Added:** offline renderer: the same engine can render into memory or a WAV file, which is
+  how all audio behaviour is tested.
+- **Added:** a small test program (`play_file`) that plays one file through the real sound
+  card, for the owner's listening check.
+- **Decision:** libraries `cpal` (sound-card output, Apache-2.0) and `rtrb` (lock-free queue,
+  MIT/Apache-2.0) added.
+- **Tests:** 9 new tests pass (53 engine tests in total) — fake sound card unplugged mid-song →
+  reopened, playback continues from the same position, also when the new device runs at a
+  different rate (48 → 44.1 kHz); no device for a while → keeps retrying, then plays; a device
+  that hangs is detected after 2 s and reopened; no crash in any case. Commands reach the
+  mixer; unloaded tracks are freed outside the audio thread. On this PC the real sound card
+  opened at 48 kHz and played a silent test file in real time.
+- **Not verified:** real unplugging of a sound card, and hearing actual music — owner check
+  with `play_file` (instructions in the M1 summary).
+- **Commit:** pending
+
 ### 2026-10-10 05:13 — M1: Crossfader, master volume and limiter
 - **Added:** the crossfader blends deck A and B at constant loudness: in the middle both play
   at −3 dB, so a blend does not dip or bump in volume. Master volume up to +6 dB.
@@ -21,7 +46,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   and −6 dB tested; peaks measured −1.0001 / −0.1001 / −6.0001 dBFS), including with master at
   +6 dB; and it does not squash normal loud signals.
 - **Not verified:** how the limiter sounds on real music (owner listening check later, M5 soak test).
-- **Commit:** pending
+- **Commit:** 53ff44a
 
 ### 2026-10-10 05:11 — M1: 3-band EQ with kills, trim and channel fader
 - **Added:** each mixer channel now has trim (input gain, up to +12 dB), a DJ-style 3-band EQ
