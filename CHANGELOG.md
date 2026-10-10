@@ -19,7 +19,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   "Works" or the web-page message; → A loads a live station (LIVE badge, title, no loops /
   pitch); Save, + Automix (shown as "Internet radio", 30:00) and loading it from the queue.
 - **Not verified:** the real stations through the speakers on the bar PC (owner, PLAN M6).
-- **Commit:** pending
+- **Commit:** 966df6e
 
 ### 2026-10-10 07:36 — M6: Radio in the app — stations, decks, Automix
 - **Added:** saved radio stations in the library (name, address, how many minutes Automix
