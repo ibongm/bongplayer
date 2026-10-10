@@ -53,14 +53,14 @@ describe("skin files", () => {
 });
 
 describe("Settings", () => {
-  it("has every tab from the plan (MIDI arrives with the DDJ-400)", async () => {
+  it("has every tab from the plan", async () => {
     await renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     const dialog = screen.getByRole("dialog", { name: "Settings" });
     const names = within(dialog)
       .getAllByRole("tab")
       .map((t) => t.textContent);
-    expect(names).toEqual(["Appearance", "Audio", "Library", "Automix", "Lock", "Radio", "Internet", "Keyboard shortcuts"]);
+    expect(names).toEqual(["Appearance", "Audio", "Library", "Automix", "Lock", "Radio", "Internet", "Keyboard shortcuts", "MIDI"]);
   });
 
   it("switching skin changes the colours at once and is remembered", async () => {

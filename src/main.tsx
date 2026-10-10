@@ -6,6 +6,7 @@ import { performDrop } from "./dnd/drop";
 import { listenNativeDrops } from "./dnd/nativeDrop";
 import { initBackend } from "./ipc/backend";
 import { startStatusFeed } from "./state/statusFeed";
+import { startMidiFeed } from "./state/midi";
 import "./styles/index.css";
 
 async function start(): Promise<void> {
@@ -16,6 +17,7 @@ async function start(): Promise<void> {
   const b = await initBackend();
   setDropHandler(performDrop);
   await startStatusFeed();
+  await startMidiFeed();
   await listenNativeDrops();
   createRoot(root).render(
     <StrictMode>

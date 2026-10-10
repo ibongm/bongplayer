@@ -1,5 +1,5 @@
 // ⚙ Settings window: Appearance, Audio, Library, Automix, Lock, Radio, Internet, Keyboard
-// shortcuts (MIDI arrives with the DDJ-400 in M11).
+// shortcuts, MIDI (DDJ-400).
 
 import { isTauri } from "@tauri-apps/api/core";
 import {
@@ -12,7 +12,7 @@ import { backend } from "../../ipc/backend";
 import type { AutomixConfig, LockInfo, OutputDevices } from "../../ipc/types";
 import { notify, status } from "../../state/app";
 import { setAutomixConfig, STYLES } from "../AutomixCockpit";
-import { AppearanceTab, LibraryTab, RadioTab, ShortcutsTab } from "./MoreTabs";
+import { AppearanceTab, LibraryTab, MidiTab, RadioTab, ShortcutsTab } from "./MoreTabs";
 import { useStore } from "../../state/store";
 import { internetLookup, loadInternetLookup, send, setInternetLookup, settingsOpen } from "../../state/ui";
 
@@ -412,7 +412,6 @@ function InternetTab(): ReactNode {
   );
 }
 
-// The MIDI tab joins with the DDJ-400 support (M11).
 type TabId = string;
 const TABS: { id: TabId; label: string; panel: () => ReactNode }[] = [
   { id: "appearance", label: "Appearance", panel: () => <AppearanceTab /> },
@@ -423,6 +422,7 @@ const TABS: { id: TabId; label: string; panel: () => ReactNode }[] = [
   { id: "radio", label: "Radio", panel: () => <RadioTab /> },
   { id: "internet", label: "Internet", panel: () => <InternetTab /> },
   { id: "shortcuts", label: "Keyboard shortcuts", panel: () => <ShortcutsTab /> },
+  { id: "midi", label: "MIDI", panel: () => <MidiTab /> },
 ];
 
 export function SettingsDialog(): ReactNode {

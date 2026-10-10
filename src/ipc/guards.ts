@@ -169,6 +169,17 @@ export function isLookupOutcome(v: unknown): v is import("./types").LookupOutcom
   );
 }
 
+export function isMidiInfo(v: unknown): v is import("./types").MidiInfo {
+  return (
+    isRecord(v) &&
+    isBool(v.enabled) &&
+    isStrOrNull(v.device) &&
+    isBool(v.leds) &&
+    arrayOf(isString)(v.inputs) &&
+    isStrOrNull(v.error)
+  );
+}
+
 export function isLibraryInfo(v: unknown): v is import("./types").LibraryInfo {
   return isRecord(v) && isString(v.database) && isNumber(v.tracks);
 }

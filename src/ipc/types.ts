@@ -173,6 +173,17 @@ export interface LookupOutcome {
   source: string | null;
 }
 
+export interface MidiInfo {
+  enabled: boolean;
+  /** Name of the connected DDJ-400, if any. */
+  device: string | null;
+  /** Its lights can be driven. */
+  leds: boolean;
+  /** Every MIDI input Windows lists. */
+  inputs: string[];
+  error: string | null;
+}
+
 export interface LibraryInfo {
   /** Where the library database is stored. */
   database: string;

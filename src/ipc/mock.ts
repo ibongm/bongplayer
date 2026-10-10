@@ -24,6 +24,8 @@ const fail = <T>(error: string): IpcResult<T> => ({ ok: false, error });
 const resolve = <T>(r: IpcResult<T>): Promise<IpcResult<T>> => Promise.resolve(r);
 
 export interface MockOptions {
+  /** Name of a connected controller ("DDJ-400"), or none. */
+  midiDevice?: string;
   /** Skin files the stand-in can "read": path → text. */
   skinFiles?: Record<string, string>;
   /** Tracks per music folder (default 40). */
@@ -959,6 +961,21 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         (c) => c.charCodeAt(0),
       );
       return resolve(ok(png.buffer));
+    },
+    midiStatus: () =>
+      resolve(
+        ok({
+          enabled: settings.get("midi.enabled") !== "0",
+          device: options.midiDevice ?? null,
+          leds: options.midiDevice !== undefined,
+          inputs: options.midiDevice === undefined ? [] : [options.midiDevice],
+          error: null,
+        }),
+      ),
+    midiEnable: (on) => {
+      calls.push(["midiEnable", on]);
+      settings.set("midi.enabled", on ? "1" : "0");
+      return resolve(ok(null));
     },
     libraryInfo: () => resolve(ok({ database: "C:\\Users\\dj\\AppData\\Roaming\\BongPlayer\\library.db", tracks: rows.size })),
     skinFileRead: (path) => {

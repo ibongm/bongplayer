@@ -352,6 +352,17 @@ export function TrackTable(): ReactNode {
     }
   };
 
+  const focusIndex = selection.focus;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || focusIndex === null) return;
+    const top = focusIndex * ROW_HEIGHT;
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight && el.clientHeight > 0) {
+      el.scrollTop = top + ROW_HEIGHT - el.clientHeight;
+    }
+  }, [focusIndex]);
+
   const selCount = selection.keys.size;
 
   return (

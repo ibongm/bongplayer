@@ -6,6 +6,20 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:23 — M11: Settings → MIDI, and the screen follows the DDJ-400
+- **Added:** Settings → **MIDI**: whether a DDJ-400 is connected ("No DDJ-400 found — plug
+  it in…", "Connected: DDJ-400"), a switch to stop using it, the MIDI devices Windows lists,
+  and a table of what each control does. Settings now has all nine tabs from the plan.
+- **Added:** when a knob, fader or the crossfader moves on the controller, the one on screen
+  moves too. The browse knob moves the selection in the track list (the list scrolls along)
+  and LOAD loads the selected track; without a selection it says so. Anything the controller
+  is not allowed to do (LOCK) shows as a message.
+- **Tests:** 5 new screen tests pass (92 in total): knobs follow without sending anything
+  back to the engine; browse + LOAD; refusals shown; the MIDI tab with and without a
+  controller, and switching it off.
+- **Not verified:** with the real DDJ-400 (owner).
+- **Commit:** pending
+
 ### 2026-10-10 12:20 — M11: Pioneer DDJ-400 support (MIDI)
 - **Added:** the DDJ-400 is found automatically whenever it is plugged in (checked every 2
   seconds) and let go when it is unplugged. What it does:
@@ -33,7 +47,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   LOCK blocks with one notice; LEDs and "send only what changed".
 - **Not verified:** everything with the real DDJ-400 (owner) — especially the jog feel, the
   direction of the tempo fader, and whether the pad / meter lights respond.
-- **Commit:** pending
+- **Commit:** aaee5a7
 
 ### 2026-10-10 12:14 — M11: Effect panel on the decks, headphone CUE in the mixer
 - **Added:** each deck has an effect panel: OFF · ECHO · FLANGER · FILTER, with STR and SPD

@@ -22,6 +22,7 @@ import {
   isLyricsOrNull,
   isPadList,
   isLibraryInfo,
+  isMidiInfo,
   isNumber,
   isQueueEntry,
   isString,
@@ -39,6 +40,7 @@ import type {
   Lyrics,
   PadInfo,
   LibraryInfo,
+  MidiInfo,
   MasterAction,
   CrateEntry,
   CrateInfo,
@@ -124,6 +126,8 @@ export interface Backend {
   /** Lyrics from the .lrc file, the file's tags, or LRCLIB (internet on); null when none. */
   trackLyrics(trackId: number): Promise<IpcResult<Lyrics | null>>;
   libraryInfo(): Promise<IpcResult<LibraryInfo>>;
+  midiStatus(): Promise<IpcResult<MidiInfo>>;
+  midiEnable(on: boolean): Promise<IpcResult<null>>;
   /** Text of a skin file (.json, at most 64 KB). */
   skinFileRead(path: string): Promise<IpcResult<string>>;
   samplerPads(): Promise<IpcResult<PadInfo[]>>;
@@ -247,6 +251,8 @@ export const tauriBackend: Backend = {
   lookupTrack: (trackId) => call("lookup_track", { trackId }, isLookupOutcome),
   trackLyrics: (trackId) => call("track_lyrics", { trackId }, isLyricsOrNull),
   libraryInfo: () => call("library_info", {}, isLibraryInfo),
+  midiStatus: () => call("midi_status", {}, isMidiInfo),
+  midiEnable: (on) => call("midi_enable", { on }, unit),
   skinFileRead: (path) => call("skin_file_read", { path }, isString),
   samplerPads: () => call("sampler_pads", {}, isPadList),
   samplerLoad: (pad, path) => call("sampler_load", { pad, path }, isPadList),

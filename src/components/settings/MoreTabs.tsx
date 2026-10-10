@@ -4,7 +4,7 @@ import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useState, type ReactNode } from "react";
 import { backend } from "../../ipc/backend";
-import type { LibraryInfo, StationRow } from "../../ipc/types";
+import type { LibraryInfo, MidiInfo, StationRow } from "../../ipc/types";
 import { notify } from "../../state/app";
 import { chooseSkin, COLOR_NAMES, deleteSkin, importSkin, SKINS, skins } from "../../state/skins";
 import { useStore } from "../../state/store";
@@ -259,6 +259,99 @@ export function ShortcutsTab(): ReactNode {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+const DDJ_CONTROLS: [string, string][] = [
+  ["PLAY / CUE / SYNC", "As on screen; SHIFT + CUE goes back to the start"],
+  ["Jog wheel (top, touched)", "Scratch"],
+  ["Jog wheel (ring)", "Bend the tempo while playing; fine move while paused"],
+  ["SHIFT + jog", "Search fast through the track"],
+  ["Tempo fader", "Pitch within the deck's range (±8 / 16 / 50 %)"],
+  ["TRIM, EQ, FILTER, channel faders, crossfader", "Mixer (the knobs on screen follow)"],
+  ["Headphone CUE", "Pre-listen the deck in the headphones"],
+  ["LOOP IN / OUT, RELOOP/EXIT", "Loops"],
+  ["Pads — HOT CUE", "Set / jump; SHIFT + pad clears"],
+  ["Pads — SAMPLER", "Play sampler pads 1–8; SHIFT + pad stops"],
+  ["Pads — BEAT LOOP", "Loop ¼, ½, 1, 2, 4, 8, 16, 32 beats"],
+  ["Browse knob / LOAD", "Move through the track list / load the selected track"],
+];
+
+export function MidiTab(): ReactNode {
+  const [info, setInfo] = useState<MidiInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = (): void => {
+    void backend()
+      .midiStatus()
+      .then((r) => {
+        if (r.ok) {
+          setInfo(r.value);
+          setError(null);
+        } else setError(r.error);
+      });
+  };
+  useEffect(() => {
+    load();
+    const id = window.setInterval(load, 2000);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const toggle = async (on: boolean): Promise<void> => {
+    const r = await backend().midiEnable(on);
+    if (!r.ok) notify("error", `MIDI: ${r.error}`);
+    load();
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section>
+        <h3 className="mb-1 text-[13px] font-semibold">Pioneer DDJ-400</h3>
+        {error && (
+          <p role="alert" className="text-[12px] text-danger">
+            {error}
+          </p>
+        )}
+        {info && (
+          <>
+            <label className="mb-2 flex items-center gap-2 text-[13px]">
+              <input type="checkbox" checked={info.enabled} onChange={(e) => void toggle(e.target.checked)} />
+              Use the DDJ-400 when it is plugged in
+            </label>
+            <p className="text-[13px]" data-testid="midi-state" role="status">
+              {!info.enabled
+                ? "Switched off."
+                : info.device
+                  ? `Connected: ${info.device}${info.leds ? "" : " (its lights cannot be driven)"}`
+                  : "No DDJ-400 found — plug it in; it is picked up within a few seconds."}
+            </p>
+            {info.error && <p className="text-[12px] text-danger">{info.error}</p>}
+            <p className="mt-1 text-[12px] text-muted">
+              MIDI devices Windows lists: {info.inputs.length === 0 ? "none" : info.inputs.join(", ")}
+            </p>
+          </>
+        )}
+      </section>
+      <section>
+        <h3 className="mb-1 text-[13px] font-semibold">What the controls do</h3>
+        <table className="w-full text-[13px]" aria-label="DDJ-400 controls">
+          <tbody>
+            {DDJ_CONTROLS.map(([control, what]) => (
+              <tr key={control} className="border-b border-border/60">
+                <td className="py-1 pr-4 font-semibold whitespace-nowrap">{control}</td>
+                <td className="py-1">{what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-[12px] text-muted">
+          Headphones: the DDJ-400's headphone socket gets the cue mix when Windows gives the app all 4 of its
+          channels (Settings → Audio: choose the DDJ-400).
+        </p>
+      </section>
     </div>
   );
 }
