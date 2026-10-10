@@ -85,5 +85,10 @@ pub fn render(song: &Song) -> Vec<f32> {
 
 /// Mono version of `render`.
 pub fn render_mono(song: &Song) -> Vec<f32> {
-    render(song).as_chunks::<2>().0.iter().map(|c| c[0]).collect()
+    render(song)
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|c| c[0])
+        .collect()
 }

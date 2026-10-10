@@ -6,6 +6,49 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 06:41 — M3: Library screens — explorer, track table, menus, drag & drop, crates, Automix queue
+- **Added:** the library screen under the two decks, in three resizable columns:
+  - **Explorer:** Music Library, Music / Downloads / Home, every drive (USB sticks and network
+    drives too) as a folder tree that opens one level at a time; Crates & Playlists (create,
+    rename F2, delete Del, right-click menu); Import Files / Import Folder / Import M3U.
+  - **Track table:** shows only the rows on screen, so 50,000 tracks scroll smoothly. Columns
+    Title, Artist, Remix, Length, BPM, Key, Plays, Last played (right-click the header to show
+    Album, Genre, Year, Rating; the choice is saved). Search box (Ctrl+F). Hover buttons per
+    row: A · B · ⚡ (Automix) · ⋮ (menu). Analyze / Import / Clear search buttons.
+  - **Automix queue:** drop tracks, files or folders on it, reorder by dragging, select,
+    remove (Del), shuffle, clear; total length shown. (Starting Automix comes in M5.)
+- **Added:** multi-select with click, Ctrl+click, Shift+click, Ctrl+A, Esc and the arrow
+  keys; the number of selected tracks is shown under the table.
+- **Added:** our own right-click menu. Submenus open on hover and with the → key; ← or Esc
+  closes them. Every action applies to the whole selection and says how many tracks it affects
+  ("Add 3 tracks to Automix"); with several tracks selected, "Load to Deck A" names the one it
+  will load. Batch Operations ▸ (analyze, double/halve/set BPM, rating) and File Operations ▸
+  (Show in Explorer, copy paths). Remove from library asks first. The table never empties
+  while an action refreshes it.
+- **Added:** drag & drop that works on Windows (pointer events, not the browser's drag & drop,
+  which Tauri switches off — the reason the old app's drag & drop never worked): table rows →
+  Deck A / B, Automix, a crate; files from Windows Explorer → Deck A / B, Automix, a crate;
+  a folder from Explorer → folder tree (opens it) or Automix (adds everything in it). A label
+  follows the mouse and the target lights up; Esc cancels.
+- **Added:** a first version of the decks (title, artist, time, play/pause, drop target);
+  the full decks come in M4. Keyboard: Enter / Shift+Enter load to Deck A / B, Q adds to
+  Automix, F1 / F5 play-pause deck A / B, Ctrl+L opens the Music Library.
+- **Added:** errors from Rust appear as red messages instead of failing silently.
+- **Fixed (found by the checks before commit):** a lost backslash in two path patterns would
+  have broken Windows paths in drag & drop; two buttons both called "Clear" got clear names;
+  table columns no longer spill over the Automix panel in a narrow window.
+- **Tests:** 40 interface tests pass, including — folder tree lists drives incl. USB and opens
+  lazily; 50,000-track folder renders under 80 rows; click/Ctrl/Shift/Ctrl+A/Esc/arrow
+  selection; submenus open on hover and with →, close on ←/Esc and when another item is
+  hovered; actions reach all selected tracks; row count stays 40 throughout a menu action;
+  crates create/rename/delete; every drag & drop case in the plan (rows → decks / queue / crate,
+  Explorer files → decks / queue, Explorer folder → tree / queue, queue reordering, Esc
+  cancels, a click is not a drag). Also checked by hand in a browser with the stand-in data.
+- **Not verified (owner, on the bar PC):** drag & drop with the real mouse inside the app and
+  from Windows Explorer; right-click menus; import dialogs; Show in Explorer; a real 50,000-file
+  library.
+- **Commit:** pending
+
 ### 2026-10-10 06:41 — M3: App connects the window to the engine and the library
 - **Added:** when the app starts it opens the library database in the app's data folder,
   starts the audio engine on the preferred sound card (if one is saved) or the default one,
@@ -22,7 +65,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Tests:** 5 app tests pass (queue add/insert/move/remove/shuffle, same track queued twice,
   command parsing); the full Rust test suite passes.
 - **Not verified:** the complete app on the bar PC (see the M3 screens entry).
-- **Commit:** pending
+- **Commit:** 5a15523
 
 ### 2026-10-10 06:16 — M3: Music library core — tag cache, BPM/key analysis, crates, playlists, M3U import
 - **Added:** the music library database (`crates/library`, SQLite). It remembers every track's

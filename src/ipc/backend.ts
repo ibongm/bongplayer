@@ -1,0 +1,175 @@
+// The UI talks to Rust only through this interface. In the desktop app it calls Tauri
+// commands; in a plain browser (`npm run dev`) and in tests it uses the in-memory mock.
+
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import {
+  arrayOf,
+  isAnalysisReport,
+  isAppInfo,
+  isCrateEntry,
+  isCrateInfo,
+  isDirListing,
+  isDrive,
+  isFolderEntry,
+  isFolderTracks,
+  isImportReport,
+  isNumber,
+  isQueueEntry,
+  isStatusSnapshot,
+  isTrackRow,
+  isUnit,
+  type Guard,
+} from "./guards";
+import type {
+  AnalysisReport,
+  AppInfo,
+  CrateEntry,
+  CrateInfo,
+  CrateKind,
+  DeckName,
+  DirListing,
+  Drive,
+  FolderEntry,
+  FolderTracks,
+  ImportReport,
+  IpcResult,
+  QueueEntry,
+  StatusSnapshot,
+  TrackRow,
+  UiCommand,
+} from "./types";
+
+export interface Backend {
+  appInfo(): Promise<IpcResult<AppInfo>>;
+  engineStatus(): Promise<IpcResult<StatusSnapshot>>;
+  listDrives(): Promise<IpcResult<Drive[]>>;
+  specialFolders(): Promise<IpcResult<FolderEntry[]>>;
+  listDir(path: string): Promise<IpcResult<DirListing>>;
+  showInExplorer(path: string): Promise<IpcResult<null>>;
+  folderTracks(path: string): Promise<IpcResult<FolderTracks>>;
+  libraryTracks(): Promise<IpcResult<TrackRow[]>>;
+  importPaths(paths: string[]): Promise<IpcResult<TrackRow[]>>;
+  cratesList(): Promise<IpcResult<CrateInfo[]>>;
+  crateCreate(name: string, kind: CrateKind): Promise<IpcResult<number>>;
+  crateRename(id: number, name: string): Promise<IpcResult<null>>;
+  crateDelete(id: number): Promise<IpcResult<null>>;
+  crateTracks(id: number): Promise<IpcResult<CrateEntry[]>>;
+  crateAdd(id: number, trackIds: number[]): Promise<IpcResult<number>>;
+  crateAddPaths(id: number, paths: string[]): Promise<IpcResult<number>>;
+  crateRemove(id: number, positions: number[]): Promise<IpcResult<number>>;
+  importM3u(path: string): Promise<IpcResult<ImportReport>>;
+  analyzeTracks(trackIds: number[]): Promise<IpcResult<AnalysisReport>>;
+  markPlayed(trackIds: number[]): Promise<IpcResult<number>>;
+  removeTracks(trackIds: number[]): Promise<IpcResult<number>>;
+  setRating(trackIds: number[], rating: number): Promise<IpcResult<number>>;
+  setBpm(trackIds: number[], bpm: number | null): Promise<IpcResult<number>>;
+  settingGet(key: string): Promise<IpcResult<string | null>>;
+  settingSet(key: string, value: string): Promise<IpcResult<null>>;
+  deckLoad(deck: DeckName, trackId: number): Promise<IpcResult<TrackRow>>;
+  deckLoadPath(deck: DeckName, path: string): Promise<IpcResult<TrackRow>>;
+  hotCueSet(deck: DeckName, slot: number): Promise<IpcResult<null>>;
+  hotCueClear(deck: DeckName, slot: number): Promise<IpcResult<null>>;
+  engineCommand(command: UiCommand): Promise<IpcResult<null>>;
+  queueList(): Promise<IpcResult<QueueEntry[]>>;
+  queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
+  queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
+  queueMove(uids: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
+  queueRemove(uids: number[]): Promise<IpcResult<QueueEntry[]>>;
+  queueClear(): Promise<IpcResult<QueueEntry[]>>;
+  queueShuffle(): Promise<IpcResult<QueueEntry[]>>;
+}
+
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Unknown error";
+  }
+}
+
+/** Calls a Tauri command; Rust errors and unexpected shapes become `{ ok: false }`. */
+export async function call<T>(
+  command: string,
+  args: Record<string, unknown>,
+  guard: Guard<T>,
+): Promise<IpcResult<T>> {
+  try {
+    const value: unknown = await invoke(command, args);
+    if (!guard(value)) {
+      return { ok: false, error: `${command} returned an unexpected shape` };
+    }
+    return { ok: true, value };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+const unit = (v: unknown): v is null => isUnit(v);
+const tracks = arrayOf(isTrackRow);
+const queue = arrayOf(isQueueEntry);
+
+export const tauriBackend: Backend = {
+  appInfo: () => call("app_info", {}, isAppInfo),
+  engineStatus: () => call("engine_status", {}, isStatusSnapshot),
+  listDrives: () => call("list_drives", {}, arrayOf(isDrive)),
+  specialFolders: () => call("special_folders", {}, arrayOf(isFolderEntry)),
+  listDir: (path) => call("list_dir", { path }, isDirListing),
+  showInExplorer: (path) => call("show_in_explorer", { path }, unit),
+  folderTracks: (path) => call("folder_tracks", { path }, isFolderTracks),
+  libraryTracks: () => call("library_tracks", {}, tracks),
+  importPaths: (paths) => call("import_paths", { paths }, tracks),
+  cratesList: () => call("crates_list", {}, arrayOf(isCrateInfo)),
+  crateCreate: (name, kind) => call("crate_create", { name, kind }, isNumber),
+  crateRename: (id, name) => call("crate_rename", { id, name }, unit),
+  crateDelete: (id) => call("crate_delete", { id }, unit),
+  crateTracks: (id) => call("crate_tracks", { id }, arrayOf(isCrateEntry)),
+  crateAdd: (id, trackIds) => call("crate_add", { id, trackIds }, isNumber),
+  crateAddPaths: (id, paths) => call("crate_add_paths", { id, paths }, isNumber),
+  crateRemove: (id, positions) => call("crate_remove", { id, positions }, isNumber),
+  importM3u: (path) => call("import_m3u", { path }, isImportReport),
+  analyzeTracks: (trackIds) => call("analyze_tracks", { trackIds }, isAnalysisReport),
+  markPlayed: (trackIds) => call("mark_played", { trackIds }, isNumber),
+  removeTracks: (trackIds) => call("remove_tracks", { trackIds }, isNumber),
+  setRating: (trackIds, rating) => call("set_rating", { trackIds, rating }, isNumber),
+  setBpm: (trackIds, bpm) => call("set_bpm", { trackIds, bpm }, isNumber),
+  settingGet: (key) =>
+    call("setting_get", { key }, (v: unknown): v is string | null => v === null || typeof v === "string"),
+  settingSet: (key, value) => call("setting_set", { key, value }, unit),
+  deckLoad: (deck, trackId) => call("deck_load", { deck, trackId }, isTrackRow),
+  deckLoadPath: (deck, path) => call("deck_load_path", { deck, path }, isTrackRow),
+  hotCueSet: (deck, slot) => call("hot_cue_set", { deck, slot }, unit),
+  hotCueClear: (deck, slot) => call("hot_cue_clear", { deck, slot }, unit),
+  engineCommand: (command) => call("engine_command", { command }, unit),
+  queueList: () => call("queue_list", {}, queue),
+  queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
+  queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),
+  queueMove: (uids, before) => call("queue_move", { uids, before }, queue),
+  queueRemove: (uids) => call("queue_remove", { uids }, queue),
+  queueClear: () => call("queue_clear", {}, queue),
+  queueShuffle: () => call("queue_shuffle", {}, queue),
+};
+
+let current: Backend | null = null;
+
+/** The active backend: Tauri in the desktop app, the mock in a browser. */
+export function backend(): Backend {
+  if (current === null) {
+    throw new Error("backend not initialised: call initBackend() first");
+  }
+  return current;
+}
+
+/** Chooses the backend once at start-up (tests pass their own). */
+export async function initBackend(override?: Backend): Promise<Backend> {
+  if (override) {
+    current = override;
+  } else if (isTauri()) {
+    current = tauriBackend;
+  } else {
+    const { createMockBackend } = await import("./mock");
+    current = createMockBackend();
+  }
+  return current;
+}

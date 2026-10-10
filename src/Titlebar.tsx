@@ -1,8 +1,8 @@
 import { use } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { AppInfo, IpcResult } from "./ipc";
-import { errorMessage } from "./ipc";
+import type { AppInfo, IpcResult } from "./ipc/types";
+import { errorMessage } from "./ipc/backend";
 
 type WindowAction = "minimize" | "toggleMaximize" | "close";
 
