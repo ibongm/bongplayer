@@ -6,6 +6,20 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:10 — M1: Deck playback, seek and hot cues
+- **Added:** the deck: load a track, play, pause, seek, and 8 hot cues (set, jump, clear). It
+  plays any file on any sound-card rate: a 44.1 kHz song on a 48 kHz output is converted with a
+  high-quality resampler built into the engine.
+- **Decision:** our own resampler instead of the `rubato` library listed in the plan. The deck
+  reads the track from memory at any fractional position, so the same code will also do pitch,
+  reverse play and scratching in M2, which `rubato` cannot. `PLAN.md` will be updated at the end of M1.
+- **Tests:** 4 deck tests pass — at the same rate the output is identical to the file, sample
+  for sample; 44.1 → 48 kHz has an error of −91 dB (target ≤ −80 dB) and the exact length
+  (96,000 frames); seek and hot-cue jumps land exactly at the same rate and within 1 ms when
+  resampling. Plus 3 small internal tests.
+- **Not verified:** none (no sound is played yet).
+- **Commit:** pending
+
 ### 2026-10-10 05:05 — M1: Engine reads MP3, FLAC, WAV, M4A and OGG
 - **Added:** the audio engine (`crates/engine`, pure Rust, no app window yet). It opens a music
   file and decodes it in the background into memory as 16-bit stereo (≈ 11 MB per minute), so
@@ -22,7 +36,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   and the right sample rate and volume; missing and damaged files give errors, not crashes.
   Plus 8 small internal tests.
 - **Not verified:** none (no sound is played yet).
-- **Commit:** pending
+- **Commit:** d89a953
 
 ### 2026-10-10 05:05 — M1: Test audio files for the engine
 - **Added:** short test tones (2 seconds, 1 kHz, half volume, stereo) in every format the
