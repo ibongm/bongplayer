@@ -6,6 +6,12 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 03:59 — M0: Repository basics
+- **Added:** ignore rules for build output (`node_modules`, `target`, `dist`) and consistent
+  line endings, so only real source files end up in git.
+- **Tests:** none (repository settings only).
+- **Not verified:** none.
+
 ### 2026-10-10 — Planning: new plan and rules (no application code yet)
 - **Added:** `PLAN.md` v2.1 — Rust audio engine, layout from the owner's references, 12
   milestones (M0–M11) with an acceptance test for every feature, including the old app's
