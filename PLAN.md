@@ -45,9 +45,11 @@ hover submenus, and radio).
 and draws what the engine reports. This is what makes scratching, key lock, exact cue
 jumps and 10+ hour stability possible.
 
-Dependencies to confirm during spikes: `symphonia` (decode), `rubato` (resample),
+Dependencies: `symphonia` (decode, MPL-2.0 — confirmed in M1), resampling by the engine's own
+windowed-sinc interpolator (M1 decision instead of `rubato`: it also serves pitch, reverse and
+scratch), `rtrb` (lock-free command queue, M1). Still to confirm during spikes:
 a time-stretcher (Signalsmith Stretch or Rubber Band — chosen by listening test in M2),
-`cpal` (WASAPI output; ASIO only if the headphone spike in M2 needs it), `midir` (MIDI),
+`cpal` (WASAPI output, added in M1; ASIO only if the headphone spike in M2 needs it), `midir` (MIDI),
 `rusqlite`, `reqwest` (radio, internet lookup).
 
 ## 2. Layout (reference: owner's screenshot + VirtualDJ-style structure)
@@ -129,13 +131,13 @@ Three views, switched by tabs at the top: **STANDARD**, **DECKS** (larger decks)
 - [x] M: Installer runs, window opens with the app shell.
 
 ### M1 — Engine core (no UI)
-- A: Decode mp3 / flac / wav / m4a / ogg; duration and sample rate correct.
-- A: Offline render of a deck at 0 % pitch matches the source within resampler tolerance.
-- A: Seek to T lands within 1 ms; hot-cue jump within 1 ms.
-- A: 3-band EQ response within 0.5 dB of spec; kills reach ≤ −60 dB.
-- A: Crossfader is constant-power (A² + B² = 1 across the travel).
-- A: Limiter never exceeds ceiling on a clipping test signal.
-- A: Output device lost → engine reopens default device without panicking.
+- [x] A: Decode mp3 / flac / wav / m4a / ogg; duration and sample rate correct.
+- [x] A: Offline render of a deck at 0 % pitch matches the source within resampler tolerance.
+- [x] A: Seek to T lands within 1 ms; hot-cue jump within 1 ms.
+- [x] A: 3-band EQ response within 0.5 dB of spec; kills reach ≤ −60 dB.
+- [x] A: Crossfader is constant-power (A² + B² = 1 across the travel).
+- [x] A: Limiter never exceeds ceiling on a clipping test signal.
+- [x] A: Output device lost → engine reopens default device without panicking.
 
 ### M2 — Decks, pitch, key lock, scratch, output devices
 - A: ±8 / 16 / 50 % pitch changes speed correctly; key lock keeps pitch within 5 cents.

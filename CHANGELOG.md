@@ -6,6 +6,17 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:30 — M1: All engine tests pass — M1 automated tests ticked
+- **Changed:** `PLAN.md` — all 7 M1 acceptance tests ticked (all are automated). The
+  dependency list now records the M1 decisions: `symphonia`, `cpal` and `rtrb` added; our own
+  resampler instead of `rubato`.
+- **Fixed:** the previous entry said 53 engine tests; the correct number is 45.
+- **Tests:** GitHub Actions run 38020249228 on `m1-engine` passed both jobs; it ran all 45
+  engine tests plus the app's checks, and built the installer.
+- **Not verified:** owner checks with the `play_file` test program — real music through the
+  speakers, and unplugging/replugging the output device while it plays.
+- **Commit:** pending
+
 ### 2026-10-10 05:21 — M1: Realtime engine, sound-card output and recovery when the device is lost
 - **Added:** the complete engine: two decks → mixer → sound card. The app sends it commands
   (load, play, pause, seek, hot cues, EQ, faders, crossfader, master, limiter) through a
@@ -21,7 +32,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   card, for the owner's listening check.
 - **Decision:** libraries `cpal` (sound-card output, Apache-2.0) and `rtrb` (lock-free queue,
   MIT/Apache-2.0) added.
-- **Tests:** 9 new tests pass (53 engine tests in total) — fake sound card unplugged mid-song →
+- **Tests:** 9 new tests pass (45 engine tests in total; corrected from "53") — fake sound card unplugged mid-song →
   reopened, playback continues from the same position, also when the new device runs at a
   different rate (48 → 44.1 kHz); no device for a while → keeps retrying, then plays; a device
   that hangs is detected after 2 s and reopened; no crash in any case. Commands reach the
@@ -29,7 +40,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   opened at 48 kHz and played a silent test file in real time.
 - **Not verified:** real unplugging of a sound card, and hearing actual music — owner check
   with `play_file` (instructions in the M1 summary).
-- **Commit:** pending
+- **Commit:** 702cdb0
 
 ### 2026-10-10 05:13 — M1: Crossfader, master volume and limiter
 - **Added:** the crossfader blends deck A and B at constant loudness: in the middle both play
