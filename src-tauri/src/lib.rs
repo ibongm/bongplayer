@@ -4,6 +4,7 @@
 pub mod commands;
 pub mod state;
 pub mod status;
+pub mod waveform;
 
 use std::sync::Arc;
 
@@ -16,15 +17,31 @@ use crate::state::AppState;
 
 /// Settings key of the preferred output device id.
 pub const PREFERRED_OUTPUT_KEY: &str = "audio.preferred_output";
+/// Settings key of the limiter ceiling in dBFS (written by the Audio settings tab).
+pub const LIMITER_CEILING_KEY: &str = "audio.limiter_ceiling";
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     std::fs::create_dir_all(&data_dir)?;
     let db_path = data_dir.join("library.db");
     let library = Library::open(&db_path)?;
-    let preferred = library.setting(PREFERRED_OUTPUT_KEY).ok().flatten();
+    let preferred = library
+        .setting(PREFERRED_OUTPUT_KEY)
+        .ok()
+        .flatten()
+        .filter(|id| !id.is_empty());
 
-    let (handle, engine) = engine::new_engine(48_000);
+    let ceiling = library
+        .setting(LIMITER_CEILING_KEY)
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<f32>().ok());
+
+    let (mut handle, engine) = engine::new_engine(48_000);
+    if let Some(db) = ceiling {
+        // Sent before output starts, so the first audio already uses the saved ceiling.
+        let _ = handle.send(engine::Command::SetLimiterCeilingDb(db));
+    }
     // If audio output cannot even start, the app still opens and shows the problem.
     let output = match OutputSupervisor::start(CpalBackend, engine, preferred) {
         Ok(o) => Some(o),
@@ -74,6 +91,9 @@ pub fn run() {
             hot_cue_set,
             hot_cue_clear,
             engine_command,
+            deck_waveform,
+            output_devices,
+            set_preferred_output,
             queue_list,
             queue_add,
             queue_add_paths,

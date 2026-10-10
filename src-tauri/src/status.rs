@@ -9,6 +9,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::state::{lock, AppState};
+use crate::waveform::WaveState;
 
 pub const STATUS_EVENT: &str = "engine-status";
 const INTERVAL: Duration = Duration::from_millis(16);
@@ -41,6 +42,16 @@ pub struct DeckSnapshot {
     pub decode_error: Option<String>,
     /// Hot cue positions in seconds.
     pub cues: Vec<Option<f64>>,
+    /// Main cue (CUE / CUP) in seconds.
+    pub main_cue: f64,
+    pub key_shift: f64,
+    pub loop_in: Option<f64>,
+    pub loop_out: Option<f64>,
+    pub loop_active: bool,
+    /// "none", "computing", "ready" or "failed".
+    pub waveform: &'static str,
+    /// Level after the channel strip: [peak, rms] (linear).
+    pub meter: [f32; 2],
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -58,6 +69,8 @@ pub struct StatusSnapshot {
     pub decks: [DeckSnapshot; 2],
     pub sample_rate: u32,
     pub output: OutputSnapshot,
+    /// Master output level [peak, rms].
+    pub master: [f32; 2],
 }
 
 pub fn snapshot(state: &AppState) -> StatusSnapshot {
@@ -76,10 +89,26 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
                 })
             }
         });
+        let wave = slot.and_then(|d| state.waves.get(d.row.id));
         let decode_error = slot.and_then(|d| match d.buffer.state() {
             engine::DecodeState::Failed(msg) => Some(msg),
-            _ => None,
+            _ => match &wave {
+                // The waveform task gives up when decoding stalls: show that, not a spinner.
+                Some(WaveState::Failed(msg)) => Some(msg.clone()),
+                _ => None,
+            },
         });
+        let waveform = match (&wave, slot.is_some()) {
+            (_, false) => "none",
+            (Some(WaveState::Ready(_)), _) => "ready",
+            (Some(WaveState::Failed(_)), _) => "failed",
+            _ => "computing",
+        };
+        let (loop_in, loop_out, loop_active) = s.loop_state();
+        let meter = state
+            .status
+            .meter(id as usize)
+            .map_or([0.0; 2], |m| [m.peak(), m.rms()]);
         let track_bpm = slot.and_then(|d| d.row.bpm);
         DeckSnapshot {
             loaded: slot.is_some() && s.is_loaded(),
@@ -104,6 +133,13 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
             cues: (0..HOT_CUES)
                 .map(|i| s.hot_cue(i).map(|f| f / rate))
                 .collect(),
+            main_cue: s.main_cue() / rate,
+            key_shift: s.key_shift(),
+            loop_in: loop_in.map(|f| f / rate),
+            loop_out: loop_out.map(|f| f / rate),
+            loop_active,
+            waveform,
+            meter,
         }
     };
     let output = match &state.output_state {
@@ -124,6 +160,10 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
         decks: [deck(DeckId::A), deck(DeckId::B)],
         sample_rate: state.status.sample_rate(),
         output,
+        master: state
+            .status
+            .meter(2)
+            .map_or([0.0; 2], |m| [m.peak(), m.rms()]),
     }
 }
 

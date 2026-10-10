@@ -11,6 +11,8 @@ use library::browse::audio_files_recursive;
 use library::{Library, TrackRow};
 use serde::{Deserialize, Serialize};
 
+use crate::waveform::WaveCache;
+
 /// Most files one folder drop may add (protects against dropping a whole drive).
 pub const MAX_FOLDER_FILES: usize = 5_000;
 
@@ -145,6 +147,7 @@ pub struct AppState {
     pub output_state: Option<Arc<OutputState>>,
     pub decks: Mutex<[Option<DeckTrack>; 2]>,
     pub queue: Mutex<Queue>,
+    pub waves: Arc<WaveCache>,
 }
 
 /// A queue entry with its track, for display.
@@ -173,6 +176,7 @@ impl AppState {
             output_state,
             decks: Mutex::new([None, None]),
             queue: Mutex::new(Queue::default()),
+            waves: Arc::new(WaveCache::default()),
         }
     }
 
@@ -229,6 +233,7 @@ impl AppState {
                     .map_err(err)?;
             }
         }
+        self.waves.start(row.id, Arc::clone(&buffer));
         lock(&self.decks)[deck.index()] = Some(DeckTrack {
             row: row.clone(),
             buffer,
@@ -273,6 +278,45 @@ impl AppState {
         lock(&self.library)
             .set_hot_cue(track_id, slot as u8, frame)
             .map_err(err)
+    }
+
+    /// Track BPM of the deck's track (analysed, tagged or manual).
+    pub fn track_bpm(&self, deck: DeckName) -> Option<f64> {
+        lock(&self.decks)[deck.index()]
+            .as_ref()
+            .and_then(|d| d.row.bpm)
+    }
+
+    /// Pitch that makes `deck` play at the other deck's current BPM. Half / double tempos
+    /// are matched too (a 70 BPM track syncs to 140). Errors when it is out of ±50 %.
+    pub fn sync_pitch(&self, deck: DeckName) -> AppResult<f64> {
+        let other = if deck == DeckName::A {
+            DeckName::B
+        } else {
+            DeckName::A
+        };
+        let mine = self
+            .track_bpm(deck)
+            .ok_or("SYNC needs this track's BPM (analyze it or use TAP)")?;
+        let theirs = self
+            .track_bpm(other)
+            .ok_or("SYNC needs the other deck's BPM (analyze it or use TAP)")?
+            * self.status.deck(other.id()).tempo();
+        let mut target = theirs;
+        while target / mine > 1.5 {
+            target /= 2.0;
+        }
+        while target / mine < 0.75 {
+            target *= 2.0;
+        }
+        let pitch = target / mine - 1.0;
+        if pitch.abs() > 0.5 {
+            return Err(format!(
+                "SYNC would need {:+.1} % pitch (more than ±50 %)",
+                pitch * 100.0
+            ));
+        }
+        Ok(pitch)
     }
 
     pub fn clear_hot_cue(&self, deck: DeckName, slot: usize) -> AppResult<()> {

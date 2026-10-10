@@ -6,6 +6,22 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:00 — M4: App — waveforms, SYNC, auto-loop in beats, output-device settings, stall guard
+- **Added:** the waveform of each loaded track is computed in Rust (150 slices per second,
+  with bass / mids / treble strength) and sent to the screen in a compact binary form.
+- **Added:** SYNC sets a deck's pitch so its tempo matches the other deck (also half / double
+  tempo; the pitch range widens if needed; a clear message if it would need more than ±50 %).
+  Auto-loops are given in beats and use the track's BPM (a message asks to analyze or TAP
+  first if there is none).
+- **Added:** the screen can list the output devices, see which one is playing, and choose the
+  preferred one (saved). The limiter ceiling chosen in Settings is saved and applied at start.
+- **Added:** a deck never shows "analyzing" forever: if decoding makes no progress for 15
+  seconds, the deck shows "decoding stopped responding" instead.
+- **Tests:** 3 new app tests pass (waveform format, bass vs. treble colouring, a stalled
+  decode is reported within the time limit instead of waited on forever).
+- **Not verified:** with real tracks and the DDJ-400 (owner).
+- **Commit:** pending
+
 ### 2026-10-10 06:46 — M4: Engine — loops, CUE / CUP, KEY shift, filter, level meters
 - **Added:** loops: auto-loop of a number of beats, loop IN / OUT, halve / double, exit and
   re-enter. The jump back is sample-accurate (no click from overshooting), also with key lock.
@@ -23,7 +39,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   +8 % = two semitones down (within 5 cents); filter centre untouched, fully closed cuts by
   more than 60 dB, the passband stays within 3.5 dB.
 - **Not verified:** how loops, CUE and the filter sound and feel (owner, with the deck screen).
-- **Commit:** pending
+- **Commit:** 0058d42
 
 ### 2026-10-10 06:41 — M3: Library screens — explorer, track table, menus, drag & drop, crates, Automix queue
 - **Added:** the library screen under the two decks, in three resizable columns:

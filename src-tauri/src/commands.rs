@@ -13,6 +13,7 @@ use tauri::State;
 
 use crate::state::{err, lock, AppResult, AppState, DeckName, QueueEntry};
 use crate::status::{snapshot, StatusSnapshot};
+use crate::waveform::WaveState;
 
 type St<'a> = State<'a, Arc<AppState>>;
 
@@ -389,6 +390,48 @@ pub enum UiCommand {
         deck: DeckName,
         position: f32,
     },
+    Filter {
+        deck: DeckName,
+        value: f32,
+    },
+    CuePress {
+        deck: DeckName,
+    },
+    CueRelease {
+        deck: DeckName,
+    },
+    CuePlay {
+        deck: DeckName,
+    },
+    KeyShift {
+        deck: DeckName,
+        semitones: f64,
+    },
+    LoopIn {
+        deck: DeckName,
+    },
+    LoopOut {
+        deck: DeckName,
+    },
+    /// Loop of this many beats (needs the track's BPM).
+    AutoLoop {
+        deck: DeckName,
+        beats: f64,
+    },
+    LoopResize {
+        deck: DeckName,
+        factor: f64,
+    },
+    LoopExit {
+        deck: DeckName,
+    },
+    LoopReenter {
+        deck: DeckName,
+    },
+    /// Match this deck's tempo to the other deck.
+    Sync {
+        deck: DeckName,
+    },
     Crossfader {
         position: f32,
     },
@@ -464,6 +507,53 @@ pub fn to_engine(state: &AppState, cmd: UiCommand) -> AppResult<Command> {
             deck: deck.id(),
             position,
         },
+        UiCommand::Filter { deck, value } => Command::SetFilter {
+            deck: deck.id(),
+            value,
+        },
+        UiCommand::CuePress { deck } => Command::CuePress(deck.id()),
+        UiCommand::CueRelease { deck } => Command::CueRelease(deck.id()),
+        UiCommand::CuePlay { deck } => Command::CuePlay(deck.id()),
+        UiCommand::KeyShift { deck, semitones } => Command::SetKeyShift {
+            deck: deck.id(),
+            semitones,
+        },
+        UiCommand::LoopIn { deck } => Command::LoopIn(deck.id()),
+        UiCommand::LoopOut { deck } => Command::LoopOut(deck.id()),
+        UiCommand::AutoLoop { deck, beats } => {
+            let bpm = state
+                .track_bpm(deck)
+                .ok_or("auto-loop needs the track's BPM (analyze it or use TAP)")?;
+            Command::AutoLoop {
+                deck: deck.id(),
+                frames: frames(deck, beats.max(1.0 / 32.0) * 60.0 / bpm)?,
+            }
+        }
+        UiCommand::LoopResize { deck, factor } => Command::LoopResize {
+            deck: deck.id(),
+            factor,
+        },
+        UiCommand::LoopExit { deck } => Command::LoopExit(deck.id()),
+        UiCommand::LoopReenter { deck } => Command::LoopReenter(deck.id()),
+        UiCommand::Sync { deck } => {
+            let pitch = state.sync_pitch(deck)?;
+            let range = state.status.deck(deck.id()).pitch_range();
+            if pitch.abs() > range {
+                // Widen the pitch fader range so the match fits.
+                let wider = [0.08, 0.16, 0.5]
+                    .into_iter()
+                    .find(|r| pitch.abs() <= *r)
+                    .unwrap_or(0.5);
+                state.send(Command::SetPitchRange {
+                    deck: deck.id(),
+                    range: wider,
+                })?;
+            }
+            Command::SetPitch {
+                deck: deck.id(),
+                pitch,
+            }
+        }
         UiCommand::Crossfader { position } => Command::SetCrossfader(position),
         UiCommand::Master { db } => Command::SetMasterDb(db),
         UiCommand::LimiterCeiling { db } => Command::SetLimiterCeilingDb(db),
@@ -474,6 +564,74 @@ pub fn to_engine(state: &AppState, cmd: UiCommand) -> AppResult<Command> {
 pub fn engine_command(state: St<'_>, command: UiCommand) -> AppResult<()> {
     let c = to_engine(&state, command)?;
     state.send(c)
+}
+
+/// The deck track's waveform (binary, see waveform.rs). Errors while it is still computing.
+#[tauri::command]
+pub fn deck_waveform(state: St<'_>, track_id: i64) -> AppResult<tauri::ipc::Response> {
+    match state.waves.get(track_id) {
+        Some(WaveState::Ready(bytes)) => Ok(tauri::ipc::Response::new(bytes.as_ref().clone())),
+        Some(WaveState::Failed(e)) => Err(e),
+        Some(WaveState::Computing) => Err("not ready".into()),
+        None => Err("no waveform for this track".into()),
+    }
+}
+
+// ----- output devices -----
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Device {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
+impl From<engine::output::DeviceInfo> for Device {
+    fn from(d: engine::output::DeviceInfo) -> Self {
+        Self {
+            id: d.id,
+            name: d.name,
+            is_default: d.is_default,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputDevices {
+    pub devices: Vec<Device>,
+    pub current: Option<Device>,
+    pub preferred: Option<String>,
+    pub sample_rate: u32,
+}
+
+#[tauri::command]
+pub fn output_devices(state: St<'_>) -> AppResult<OutputDevices> {
+    let o = state
+        .output_state
+        .as_ref()
+        .ok_or("audio output is not running")?;
+    Ok(OutputDevices {
+        devices: o.devices().into_iter().map(Device::from).collect(),
+        current: o.current_device().map(Device::from),
+        preferred: o.preferred_device(),
+        sample_rate: state.status.sample_rate(),
+    })
+}
+
+/// Chooses (or clears) the preferred output device and remembers it.
+#[tauri::command]
+pub async fn set_preferred_output(state: St<'_>, id: Option<String>) -> AppResult<()> {
+    blocking(&state, move |s| {
+        if let Some(sup) = lock(&s.output).as_ref() {
+            sup.set_preferred(id.clone());
+        }
+        lock(&s.library)
+            .set_setting(crate::PREFERRED_OUTPUT_KEY, id.as_deref().unwrap_or(""))
+            .map_err(err)
+    })
+    .await
 }
 
 // ----- Automix queue -----
