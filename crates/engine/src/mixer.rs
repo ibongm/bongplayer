@@ -1,5 +1,6 @@
 //! Two channel strips → constant-power crossfader → master gain → limiter.
 
+use crate::effects::Ducker;
 use crate::eq::{db_to_gain, Smoothed};
 use crate::limiter::Limiter;
 use crate::strip::ChannelStrip;
@@ -24,6 +25,8 @@ pub struct Mixer {
     pub strips: [ChannelStrip; 2],
     crossfader: Smoothed,
     master: Smoothed,
+    /// Lowers the music for announcements (DUCK).
+    pub ducker: Ducker,
     pub limiter: Limiter,
 }
 
@@ -37,6 +40,7 @@ impl Mixer {
             ],
             crossfader: Smoothed::new(0.5, sample_rate),
             master: Smoothed::new(1.0, sample_rate),
+            ducker: Ducker::new(sample_rate),
             limiter: Limiter::new(sample_rate),
         }
     }
@@ -82,7 +86,7 @@ impl Mixer {
         let b = b.as_chunks::<2>().0;
         for ((o, fa), fb) in frames.iter_mut().zip(a).zip(b) {
             let (ga, gb) = crossfader_gains(self.crossfader.step());
-            let m = self.master.step();
+            let m = self.master.step() * self.ducker.step();
             o[0] = (fa[0] * ga + fb[0] * gb) * m;
             o[1] = (fa[1] * ga + fb[1] * gb) * m;
         }

@@ -6,6 +6,23 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:04 — M5: Engine — Automix transitions, echo, DUCK
+- **Added:** four Automix transitions, run inside the audio engine so they are exact:
+  **Smooth** (equal-power crossfade), **Bass Swap** (crossfade, the two tracks' bass swapped
+  half way so they never boom together), **Cut** (instant switch, 5 ms ramp, no click) and
+  **Echo-Out** (the old track stops into an echo that fades out while the new one starts).
+  When a transition ends, the old deck stops and the EQ / echo return to how the DJ left them.
+- **Added:** DUCK in the engine: lowers the music by a set amount with a smooth ramp and brings
+  it back (depth and ramp times adjustable).
+- **Fixed (found by its test):** the DUCK ramp could stop 0.00002 dB short of full level.
+- **Tests:** 5 transition tests and 2 effect tests pass — Smooth never dips (lowest 10 ms level
+  95 % of one track), both tracks at −3 dB half way, only the new track at the end; Cut
+  switches within 20 ms; Bass Swap: the new bass is held back until half way, then the old
+  bass is gone; Echo-Out: new track at once, old track's echo audible and fading, gone at the
+  end; DUCK reaches −12 dB in 0.3 s and comes back; echo repeats at the right time and level.
+- **Not verified:** how the transitions sound on real music (owner).
+- **Commit:** pending
+
 ### 2026-10-10 07:00 — M4: Deck and mixer screens, three views, top bar, Settings (Audio)
 - **Added:** three views, switched at the top (or Ctrl+1 / 2 / 3): **STANDARD** (waveforms,
   decks, mixer and library), **DECKS** (bigger decks, no library), **LIBRARY** (small decks and
@@ -39,7 +56,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Not verified (owner, on the bar PC):** smooth 60 fps scrolling of both waveforms on the
   bar laptop; overview click accuracy; how scratching with the mouse feels; real audio of
   loops, CUE, filter and EQ.
-- **Commit:** pending
+- **Commit:** 7536398
 
 ### 2026-10-10 07:00 — M4: App — waveforms, SYNC, auto-loop in beats, output-device settings, stall guard
 - **Added:** the waveform of each loaded track is computed in Rust (150 slices per second,

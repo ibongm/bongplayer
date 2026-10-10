@@ -6,6 +6,7 @@
 pub mod cpal_backend;
 pub mod deck;
 pub mod decode;
+pub mod effects;
 pub mod engine;
 pub mod eq;
 pub mod filter;
@@ -21,5 +22,7 @@ pub mod track;
 pub use decode::{
     decode_excerpt, decode_to_end, start_decoding, DecodeError, DecodingTrack, Excerpt,
 };
-pub use engine::{new_engine, Command, DeckId, Engine, EngineError, EngineHandle, EngineStatus};
+pub use engine::{
+    new_engine, Command, DeckId, Engine, EngineError, EngineHandle, EngineStatus, TransitionStyle,
+};
 pub use track::{DecodeState, TrackBuffer};

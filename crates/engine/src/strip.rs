@@ -1,5 +1,6 @@
 //! Mixer channel strip: trim → 3-band EQ → filter → channel fader.
 
+use crate::effects::Echo;
 use crate::eq::{db_to_gain, Band, Smoothed, ThreeBandEq};
 use crate::filter::DjFilter;
 
@@ -11,6 +12,10 @@ pub struct ChannelStrip {
     trim: Smoothed,
     pub eq: ThreeBandEq,
     pub filter: DjFilter,
+    /// Echo used by Automix's Echo-Out (wet signal added after the filter).
+    pub echo: Echo,
+    /// Level of the direct (non-echo) signal; Echo-Out fades it while the echo rings on.
+    dry: Smoothed,
     fader: Smoothed,
 }
 
@@ -20,6 +25,8 @@ impl ChannelStrip {
             trim: Smoothed::new(1.0, sample_rate),
             eq: ThreeBandEq::new(sample_rate),
             filter: DjFilter::new(sample_rate),
+            echo: Echo::new(sample_rate, 2.0),
+            dry: Smoothed::new(1.0, sample_rate),
             fader: Smoothed::new(1.0, sample_rate),
         }
     }
@@ -52,6 +59,11 @@ impl ChannelStrip {
         self.eq.set_kill(band, kill);
     }
 
+    /// Direct-signal level 0 … 1 (1 = normal).
+    pub fn set_dry(&mut self, level: f32) {
+        self.dry.set(level.clamp(0.0, 1.0));
+    }
+
     /// Filter knob −1 (low-pass) … 0 (off) … +1 (high-pass).
     pub fn set_filter(&mut self, knob: f32) {
         self.filter.set(knob);
@@ -74,6 +86,12 @@ impl ChannelStrip {
         }
         self.eq.process(buf);
         self.filter.process(buf);
+        for frame in buf.as_chunks_mut::<2>().0 {
+            let d = self.dry.step();
+            let (wl, wr) = self.echo.tick(frame[0], frame[1]);
+            frame[0] = frame[0] * d + wl;
+            frame[1] = frame[1] * d + wr;
+        }
         for frame in buf.as_chunks_mut::<2>().0 {
             let f = self.fader.step();
             frame[0] *= f;

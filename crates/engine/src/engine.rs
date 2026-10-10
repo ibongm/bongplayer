@@ -21,6 +21,35 @@ pub const MAX_BLOCK: usize = 1024;
 const COMMAND_QUEUE: usize = 1024;
 const GARBAGE_QUEUE: usize = 64;
 
+/// How Automix blends one track into the next.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransitionStyle {
+    /// Equal-power crossfade.
+    Smooth,
+    /// Crossfade, swapping the bass of the two tracks half way.
+    BassSwap,
+    /// Instant switch (a 5 ms ramp avoids a click).
+    Cut,
+    /// The outgoing track stops into an echo that fades out; the new one starts at once.
+    EchoOut,
+}
+
+impl TransitionStyle {
+    pub const ALL: [TransitionStyle; 4] = [Self::Smooth, Self::BassSwap, Self::Cut, Self::EchoOut];
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Transition {
+    from: DeckId,
+    to: DeckId,
+    style: TransitionStyle,
+    /// Length in output frames.
+    len: u64,
+    elapsed: u64,
+    /// Echo-Out: how long the dry signal takes to fade, in output frames.
+    dry_fade: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeckId {
     A = 0,
@@ -139,6 +168,28 @@ pub enum Command {
     LoopReenter(DeckId),
     SetCrossfader(f32),
     SetMasterDb(f32),
+    /// Starts an Automix transition from one deck to the other (the "to" deck should
+    /// already be playing). `echo_seconds` is the Echo-Out delay (one beat).
+    StartTransition {
+        from: DeckId,
+        to: DeckId,
+        style: TransitionStyle,
+        seconds: f64,
+        echo_seconds: f64,
+    },
+    /// Stops a running transition where it is.
+    CancelTransition,
+    /// DUCK on / off with the given depth in dB.
+    SetDuck {
+        on: bool,
+        depth_db: f32,
+    },
+    /// DUCK ramp times in seconds.
+    ConfigureDuck {
+        depth_db: f32,
+        attack_seconds: f64,
+        release_seconds: f64,
+    },
     SetLimiterCeilingDb(f32),
 }
 
@@ -297,6 +348,10 @@ pub struct EngineStatus {
     decks: [DeckStatus; 2],
     sample_rate: AtomicU32,
     frames_rendered: AtomicU64,
+    transition_active: AtomicBool,
+    transitions_done: AtomicU64,
+    crossfader_bits: AtomicU32,
+    duck_db_bits: AtomicU32,
     /// Deck A (after its channel strip), deck B, master output.
     meters: [Meter; 3],
 }
@@ -312,6 +367,22 @@ impl EngineStatus {
     /// Level of deck A / deck B after their channel strips (index 0 / 1) or the master (2).
     pub fn meter(&self, index: usize) -> Option<&Meter> {
         self.meters.get(index)
+    }
+    /// An Automix transition is running.
+    pub fn transition_active(&self) -> bool {
+        self.transition_active.load(Ordering::Relaxed)
+    }
+    /// Number of transitions that have finished (Automix waits on this).
+    pub fn transitions_done(&self) -> u64 {
+        self.transitions_done.load(Ordering::Relaxed)
+    }
+    /// Crossfader position 0 (A) … 1 (B), as set by the DJ or Automix.
+    pub fn crossfader(&self) -> f32 {
+        f32::from_bits(self.crossfader_bits.load(Ordering::Relaxed))
+    }
+    /// Current DUCK attenuation in dB (0 = none).
+    pub fn duck_db(&self) -> f32 {
+        f32::from_bits(self.duck_db_bits.load(Ordering::Relaxed))
     }
     /// Total output frames produced so far (also used by the output watchdog).
     pub fn frames_rendered(&self) -> u64 {
@@ -374,6 +445,7 @@ pub struct Engine {
     settings: MixerSettings,
     buf_a: Vec<f32>,
     buf_b: Vec<f32>,
+    transition: Option<Transition>,
     commands: Consumer<Command>,
     garbage: Producer<LoadedTrack>,
     status: Arc<EngineStatus>,
@@ -426,6 +498,7 @@ pub fn new_engine(sample_rate: u32) -> (EngineHandle, Engine) {
         settings,
         buf_a: vec![0.0; 2 * MAX_BLOCK],
         buf_b: vec![0.0; 2 * MAX_BLOCK],
+        transition: None,
         commands: cmd_rx,
         garbage: gc_tx,
         status: Arc::clone(&status),
@@ -514,8 +587,15 @@ impl Engine {
     pub fn process(&mut self, out: &mut [f32]) {
         self.apply_commands();
         let mut acc = [MeterAcc::default(); 3];
-        for block in out.chunks_mut(2 * MAX_BLOCK) {
+        // During a transition, automation runs every 256 frames (≈ 5 ms).
+        let chunk = if self.transition.is_some() {
+            256
+        } else {
+            MAX_BLOCK
+        };
+        for block in out.chunks_mut(2 * chunk) {
             let n = block.len() & !1;
+            self.automate((n / 2) as u64);
             let (a, b) = (&mut self.buf_a[..n], &mut self.buf_b[..n]);
             self.decks[0].render(a);
             self.decks[1].render(b);
@@ -528,12 +608,83 @@ impl Engine {
         for (m, a) in self.status.meters.iter().zip(&acc) {
             m.store(a);
         }
+        self.status
+            .transition_active
+            .store(self.transition.is_some(), Ordering::Relaxed);
+        self.status
+            .crossfader_bits
+            .store(self.settings.crossfader.to_bits(), Ordering::Relaxed);
+        self.status
+            .duck_db_bits
+            .store(self.mixer.ducker.level_db().to_bits(), Ordering::Relaxed);
         for (deck, s) in self.decks.iter().zip(&self.status.decks) {
             s.publish(deck);
         }
         self.status
             .frames_rendered
             .fetch_add((out.len() / 2) as u64, Ordering::Relaxed);
+    }
+
+    /// Moves the crossfader / EQ / echo of a running transition, and finishes it at the end.
+    fn automate(&mut self, frames: u64) {
+        let Some(mut t) = self.transition else {
+            return;
+        };
+        let p = if t.len == 0 {
+            1.0
+        } else {
+            (t.elapsed as f64 / t.len as f64).min(1.0)
+        } as f32;
+        let to_pos = if t.to == DeckId::A { 0.0 } else { 1.0 };
+        let from_pos = 1.0 - to_pos;
+        let (fi, ti) = (t.from as usize, t.to as usize);
+        let xf = match t.style {
+            TransitionStyle::Smooth | TransitionStyle::BassSwap => {
+                from_pos + (to_pos - from_pos) * p
+            }
+            TransitionStyle::Cut => to_pos,
+            TransitionStyle::EchoOut => 0.5,
+        };
+        if t.style == TransitionStyle::BassSwap {
+            let user = |d: usize| self.settings.kill[d][Band::Low as usize];
+            let (uf, ut) = (user(fi), user(ti));
+            self.mixer.strips[ti].set_kill(Band::Low, ut || p < 0.5);
+            self.mixer.strips[fi].set_kill(Band::Low, uf || p >= 0.5);
+        }
+        if t.style == TransitionStyle::EchoOut {
+            let fading = t.elapsed < t.dry_fade;
+            self.mixer.strips[fi]
+                .echo
+                .set_send(if fading { 1.0 } else { 0.0 });
+            self.mixer.strips[fi].set_dry(if fading {
+                1.0 - t.elapsed as f32 / t.dry_fade.max(1) as f32
+            } else {
+                0.0
+            });
+        }
+        self.mixer.set_crossfader(xf);
+        self.settings.crossfader = xf;
+        t.elapsed += frames;
+        if p >= 1.0 {
+            self.finish_transition(t);
+        } else {
+            self.transition = Some(t);
+        }
+    }
+
+    fn finish_transition(&mut self, t: Transition) {
+        let (fi, ti) = (t.from as usize, t.to as usize);
+        self.decks[fi].pause();
+        let s = &mut self.mixer.strips[fi];
+        s.set_dry(1.0);
+        s.echo.clear();
+        s.set_kill(Band::Low, self.settings.kill[fi][Band::Low as usize]);
+        self.mixer.strips[ti].set_kill(Band::Low, self.settings.kill[ti][Band::Low as usize]);
+        let to_pos = if t.to == DeckId::A { 0.0 } else { 1.0 };
+        self.mixer.set_crossfader(to_pos);
+        self.settings.crossfader = to_pos;
+        self.transition = None;
+        self.status.transitions_done.fetch_add(1, Ordering::Relaxed);
     }
 
     fn apply_commands(&mut self) {
@@ -626,6 +777,59 @@ impl Engine {
                 s.crossfader = p;
                 self.mixer.set_crossfader(p);
             }
+            Command::StartTransition {
+                from,
+                to,
+                style,
+                seconds,
+                echo_seconds,
+            } => {
+                if let Some(old) = self.transition.take() {
+                    self.finish_transition(old);
+                }
+                if from != to {
+                    let rate = f64::from(self.sample_rate);
+                    let len = if style == TransitionStyle::Cut {
+                        0
+                    } else {
+                        (seconds.clamp(0.0, 60.0) * rate) as u64
+                    };
+                    let fi = from as usize;
+                    if style == TransitionStyle::EchoOut {
+                        let delay = (echo_seconds.clamp(0.05, 1.9) * rate) as usize;
+                        self.mixer.strips[fi].echo.set_delay(delay);
+                        self.mixer.strips[fi].echo.set_feedback(0.55);
+                    }
+                    self.transition = Some(Transition {
+                        from,
+                        to,
+                        style,
+                        len,
+                        elapsed: 0,
+                        dry_fade: ((0.3 * rate) as u64).min(len / 3).max(1),
+                    });
+                }
+            }
+            Command::CancelTransition => {
+                if let Some(t) = self.transition.take() {
+                    let fi = t.from as usize;
+                    self.mixer.strips[fi].set_dry(1.0);
+                    self.mixer.strips[fi].echo.set_send(0.0);
+                    for d in 0..2 {
+                        self.mixer.strips[d]
+                            .set_kill(Band::Low, self.settings.kill[d][Band::Low as usize]);
+                    }
+                }
+            }
+            Command::SetDuck { on, depth_db } => self.mixer.ducker.set(on, depth_db),
+            Command::ConfigureDuck {
+                depth_db,
+                attack_seconds,
+                release_seconds,
+            } => self
+                .mixer
+                .ducker
+                .configure(depth_db, attack_seconds, release_seconds),
             Command::SetMasterDb(db) => {
                 s.master_db = db;
                 self.mixer.set_master_db(db);
