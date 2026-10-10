@@ -11,6 +11,8 @@ use library::browse::audio_files_recursive;
 use library::{Library, TrackRow};
 use serde::{Deserialize, Serialize};
 
+use crate::automix::Automix;
+use crate::lock::LockState;
 use crate::waveform::WaveCache;
 
 /// Most files one folder drop may add (protects against dropping a whole drive).
@@ -55,7 +57,7 @@ pub struct DeckTrack {
     pub expected_frames: Option<u64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueueItem {
     /// Unique per queue entry (the same track may be queued twice).
@@ -73,6 +75,12 @@ pub struct Queue {
 impl Queue {
     pub fn items(&self) -> &[QueueItem] {
         &self.items
+    }
+
+    /// Replaces the queue with saved entries (resume after a restart).
+    pub fn restore(&mut self, items: Vec<QueueItem>) {
+        self.next_uid = items.iter().map(|i| i.uid).max().unwrap_or(0);
+        self.items = items;
     }
 
     fn index_of(&self, uid: u64) -> Option<usize> {
@@ -148,6 +156,8 @@ pub struct AppState {
     pub decks: Mutex<[Option<DeckTrack>; 2]>,
     pub queue: Mutex<Queue>,
     pub waves: Arc<WaveCache>,
+    pub automix: Mutex<Automix>,
+    pub lock: Mutex<LockState>,
 }
 
 /// A queue entry with its track, for display.
@@ -177,6 +187,8 @@ impl AppState {
             decks: Mutex::new([None, None]),
             queue: Mutex::new(Queue::default()),
             waves: Arc::new(WaveCache::default()),
+            automix: Mutex::new(Automix::default()),
+            lock: Mutex::new(LockState::default()),
         }
     }
 

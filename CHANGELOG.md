@@ -6,6 +6,37 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:12 — M5: Automix controller, resume after a crash, LOCK, DUCK (app side)
+- **Added:** Automix plays the queue on its own: the next track is loaded early on the other
+  deck; the transition (Smooth, Bass Swap, Cut or Echo-Out) starts when the playing track has
+  the "trigger" time left and lasts the "crossfade" time; each finished track is counted as
+  played. **Loop** starts the queue again at the end, **Shuffle** picks at random (each track
+  once per round), **Auto-remove** takes played tracks out of the queue.
+- **Added:** never dead air: a queued file that is missing or cannot be read is skipped (and
+  reported); if the playing track stops on its own or its deck gets stuck for 3 s, the next
+  track starts straight away. A deck the DJ pauses on purpose is left alone.
+- **Added:** resume after a crash or reboot: the queue, the current track and its position are
+  saved every 5 seconds; at start-up Automix continues where it was.
+- **Added:** master PLAY (starts Automix or resumes a paused deck), PAUSE and STOP.
+- **Added:** LOCK: while locked, play / pause / seek / cue / loops / sync / scratch, loading
+  tracks, the crossfader, pitch, Automix and queue edits are refused by the app itself (not
+  just greyed out). Volume and DUCK stay usable unless switched off. Unlock with the PIN or by
+  holding LOCK (if allowed). The PIN is stored only as a salted SHA-256 hash.
+- **Added:** DUCK command with an adjustable depth (default 12 dB), and the option to start
+  BongPlayer when Windows starts (autostart plugin).
+- **Decision:** libraries `sha2` (PIN hashing) and `tauri-plugin-autostart`, both
+  MIT/Apache-2.0.
+- **Tests:** 8 Automix tests play generated audio files through the real engine offline —
+  the transition started with 3.95 s left (trigger 4 s, ticks every 0.05 s) and lasted 3.00 s
+  (crossfade 3 s); queue order; Loop; Shuffle (every track once, different order);
+  Auto-remove; a missing and a damaged file were skipped and the queue went on; after a
+  simulated crash the queue came back identical and the track resumed at 3.05 s (saved at
+  2.95 s), playing; LOCK blocks music controls, keeps volume (when allowed), refuses a wrong
+  PIN, unlocks with the right PIN or a hold (when allowed); changing the PIN needs the old one.
+  Plus 1 PIN-hash test.
+- **Not verified:** the 12-hour soak test on the bar PC with a real playlist (owner, PLAN M5).
+- **Commit:** pending
+
 ### 2026-10-10 07:04 — M5: Engine — Automix transitions, echo, DUCK
 - **Added:** four Automix transitions, run inside the audio engine so they are exact:
   **Smooth** (equal-power crossfade), **Bass Swap** (crossfade, the two tracks' bass swapped
@@ -21,7 +52,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   bass is gone; Echo-Out: new track at once, old track's echo audible and fading, gone at the
   end; DUCK reaches −12 dB in 0.3 s and comes back; echo repeats at the right time and level.
 - **Not verified:** how the transitions sound on real music (owner).
-- **Commit:** pending
+- **Commit:** 5c1aec6
 
 ### 2026-10-10 07:00 — M4: Deck and mixer screens, three views, top bar, Settings (Audio)
 - **Added:** three views, switched at the top (or Ctrl+1 / 2 / 3): **STANDARD** (waveforms,

@@ -1,7 +1,9 @@
 //! BongPlayer desktop app: thin glue between the window (React UI), the audio engine and the
 //! music library.
 
+pub mod automix;
 pub mod commands;
+pub mod lock;
 pub mod state;
 pub mod status;
 pub mod waveform;
@@ -50,15 +52,54 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             None
         }
     };
-    app.manage(Arc::new(AppState::new(db_path, library, handle, output)));
+    let state = Arc::new(AppState::new(db_path, library, handle, output));
+    state.load_lock();
+    match state.automix_restore() {
+        Ok(true) => eprintln!("BongPlayer: resumed Automix where it stopped"),
+        Ok(false) => {}
+        Err(e) => eprintln!("BongPlayer: could not restore the Automix queue: {e}"),
+    }
+    start_automix_thread(Arc::clone(&state));
+    app.manage(state);
     status::start(app.handle().clone());
     Ok(())
+}
+
+/// Runs the Automix controller about 20 times a second and saves the queue / position every
+/// 5 seconds (for resume after a crash).
+fn start_automix_thread(state: Arc<AppState>) {
+    let spawned = std::thread::Builder::new()
+        .name("bong-automix".into())
+        .spawn(move || {
+            let started = std::time::Instant::now();
+            let mut last_save = 0.0;
+            let mut n: u64 = 0;
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                let now = started.elapsed().as_secs_f64();
+                n = n.wrapping_add(1);
+                state.automix_tick(now, n.wrapping_mul(0x9E37_79B9));
+                if now - last_save >= 5.0 {
+                    last_save = now;
+                    if let Err(e) = state.automix_save() {
+                        eprintln!("BongPlayer: could not save the Automix state: {e}");
+                    }
+                }
+            }
+        });
+    if let Err(e) = spawned {
+        eprintln!("BongPlayer: Automix could not start: {e}");
+    }
 }
 
 pub fn run() {
     use commands::*;
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             app_info,
@@ -94,6 +135,17 @@ pub fn run() {
             deck_waveform,
             output_devices,
             set_preferred_output,
+            automix_start,
+            automix_stop,
+            automix_skip,
+            automix_config,
+            master_transport,
+            lock_info,
+            lock_engage,
+            lock_release,
+            lock_configure,
+            duck,
+            duck_depth,
             queue_list,
             queue_add,
             queue_add_paths,

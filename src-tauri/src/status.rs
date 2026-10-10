@@ -65,12 +65,30 @@ pub struct OutputSnapshot {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct AutomixSnapshot {
+    pub on: bool,
+    pub current_uid: Option<u64>,
+    pub next_uid: Option<u64>,
+    pub transitioning: bool,
+    pub config: crate::automix::AutomixConfig,
+    /// Most recent message (skipped files, empty queue…).
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusSnapshot {
     pub decks: [DeckSnapshot; 2],
     pub sample_rate: u32,
     pub output: OutputSnapshot,
     /// Master output level [peak, rms].
     pub master: [f32; 2],
+    pub crossfader: f32,
+    pub automix: AutomixSnapshot,
+    pub locked: bool,
+    pub duck_on: bool,
+    /// Current DUCK attenuation in dB (0 = none).
+    pub duck_db: f32,
 }
 
 pub fn snapshot(state: &AppState) -> StatusSnapshot {
@@ -164,6 +182,21 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
             .status
             .meter(2)
             .map_or([0.0; 2], |m| [m.peak(), m.rms()]),
+        crossfader: state.status.crossfader(),
+        automix: {
+            let am = lock(&state.automix);
+            AutomixSnapshot {
+                on: am.on,
+                current_uid: am.current.map(|c| c.uid),
+                next_uid: am.next.map(|c| c.uid),
+                transitioning: am.transitioning,
+                config: am.config,
+                message: am.messages.back().cloned(),
+            }
+        },
+        locked: lock(&state.lock).locked,
+        duck_on: lock(&state.automix).duck_on,
+        duck_db: state.status.duck_db(),
     }
 }
 

@@ -11,6 +11,8 @@ use library::{AnalysisReport, CrateInfo, CrateKind, ImportReport, ScanStats, Tra
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::automix::AutomixConfig;
+use crate::lock::Action;
 use crate::state::{err, lock, AppResult, AppState, DeckName, QueueEntry};
 use crate::status::{snapshot, StatusSnapshot};
 use crate::waveform::WaveState;
@@ -285,21 +287,25 @@ pub async fn setting_set(state: St<'_>, key: String, value: String) -> AppResult
 
 #[tauri::command]
 pub async fn deck_load(state: St<'_>, deck: DeckName, track_id: i64) -> AppResult<TrackRow> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| s.load_track(deck, track_id)).await
 }
 
 #[tauri::command]
 pub async fn deck_load_path(state: St<'_>, deck: DeckName, path: PathBuf) -> AppResult<TrackRow> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| s.load_path(deck, &path)).await
 }
 
 #[tauri::command]
 pub fn hot_cue_set(state: St<'_>, deck: DeckName, slot: usize) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
     state.set_hot_cue(deck, slot)
 }
 
 #[tauri::command]
 pub fn hot_cue_clear(state: St<'_>, deck: DeckName, slot: usize) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
     state.clear_hot_cue(deck, slot)
 }
 
@@ -561,8 +567,22 @@ pub fn to_engine(state: &AppState, cmd: UiCommand) -> AppResult<Command> {
 }
 
 #[tauri::command]
+/// Volume controls stay usable while locked (if allowed); everything else is music.
+pub fn lock_action(cmd: &UiCommand) -> Action {
+    match cmd {
+        UiCommand::Fader { .. } | UiCommand::Master { .. } => Action::Volume,
+        _ => Action::Music,
+    }
+}
+
+#[tauri::command]
 pub fn engine_command(state: St<'_>, command: UiCommand) -> AppResult<()> {
-    let c = to_engine(&state, command)?;
+    run_engine_command(&state, command)
+}
+
+pub fn run_engine_command(state: &AppState, command: UiCommand) -> AppResult<()> {
+    state.lock_check(lock_action(&command))?;
+    let c = to_engine(state, command)?;
     state.send(c)
 }
 
@@ -575,6 +595,176 @@ pub fn deck_waveform(state: St<'_>, track_id: i64) -> AppResult<tauri::ipc::Resp
         Some(WaveState::Computing) => Err("not ready".into()),
         None => Err("no waveform for this track".into()),
     }
+}
+
+// ----- Automix, LOCK, DUCK -----
+
+fn clock_seconds() -> f64 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START
+        .get_or_init(std::time::Instant::now)
+        .elapsed()
+        .as_secs_f64()
+}
+
+fn seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(1, |d| d.as_nanos() as u64)
+}
+
+#[tauri::command]
+pub fn automix_start(state: St<'_>) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
+    state.automix_start()?;
+    state.automix_tick(clock_seconds(), seed());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn automix_stop(state: St<'_>) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
+    state.automix_stop();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn automix_skip(state: St<'_>) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
+    state.automix_skip(clock_seconds(), seed())
+}
+
+#[tauri::command]
+pub async fn automix_config(state: St<'_>, config: AutomixConfig) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
+    blocking(&state, move |s| s.automix_set_config(config)).await
+}
+
+/// Master transport: PLAY starts Automix (or resumes a paused deck), PAUSE pauses the
+/// playing decks, STOP stops Automix and both decks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MasterAction {
+    Play,
+    Pause,
+    Stop,
+}
+
+#[tauri::command]
+pub fn master_transport(state: St<'_>, action: MasterAction) -> AppResult<()> {
+    state.lock_check(Action::Music)?;
+    match action {
+        MasterAction::Play => {
+            let paused = [DeckName::A, DeckName::B].into_iter().find(|d| {
+                let st = state.status.deck(d.id());
+                st.is_loaded() && !st.is_playing() && !st.has_ended() && st.position() > 0.0
+            });
+            match paused {
+                Some(d) => state.send(engine::Command::Play(d.id()))?,
+                None => {
+                    state.automix_start()?;
+                    state.automix_tick(clock_seconds(), seed());
+                }
+            }
+        }
+        MasterAction::Pause => {
+            for d in [DeckName::A, DeckName::B] {
+                state.send(engine::Command::Pause(d.id()))?;
+            }
+        }
+        MasterAction::Stop => {
+            state.automix_stop();
+            for d in [DeckName::A, DeckName::B] {
+                state.send(engine::Command::Pause(d.id()))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LockInfo {
+    pub locked: bool,
+    pub volume_allowed: bool,
+    pub hold_unlocks: bool,
+    pub has_pin: bool,
+}
+
+#[tauri::command]
+pub fn lock_info(state: St<'_>) -> LockInfo {
+    let l = lock(&state.lock);
+    LockInfo {
+        locked: l.locked,
+        volume_allowed: l.settings.volume_allowed,
+        hold_unlocks: l.settings.hold_unlocks,
+        has_pin: l.settings.pin_hash.is_some(),
+    }
+}
+
+#[tauri::command]
+pub async fn lock_engage(state: St<'_>) -> AppResult<()> {
+    blocking(&state, |s| s.lock_engage()).await
+}
+
+#[tauri::command]
+pub async fn lock_release(state: St<'_>, pin: Option<String>, hold: bool) -> AppResult<()> {
+    blocking(&state, move |s| s.lock_release(pin.as_deref(), hold)).await
+}
+
+/// Lock options. `newPin`: omit to keep the PIN, "" to remove it, digits to set it.
+#[tauri::command]
+pub async fn lock_configure(
+    state: St<'_>,
+    volume_allowed: bool,
+    hold_unlocks: bool,
+    current_pin: Option<String>,
+    new_pin: Option<String>,
+) -> AppResult<()> {
+    blocking(&state, move |s| {
+        if lock(&s.lock).locked {
+            return Err("Unlock first to change the lock settings".into());
+        }
+        let change = new_pin
+            .as_deref()
+            .map(|p| if p.is_empty() { None } else { Some(p) });
+        s.lock_configure(volume_allowed, hold_unlocks, current_pin.as_deref(), change)
+    })
+    .await
+}
+
+pub const DUCK_DEPTH_KEY: &str = "duck.depth_db";
+
+#[tauri::command]
+pub async fn duck(state: St<'_>, on: bool) -> AppResult<()> {
+    state.lock_check(Action::Volume)?;
+    blocking(&state, move |s| {
+        let depth = lock(&s.library)
+            .setting(DUCK_DEPTH_KEY)
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(12.0);
+        lock(&s.automix).duck_on = on;
+        s.send(engine::Command::SetDuck {
+            on,
+            depth_db: depth,
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn duck_depth(state: St<'_>, db: f32) -> AppResult<()> {
+    blocking(&state, move |s| {
+        let d = db.clamp(3.0, 40.0);
+        lock(&s.library)
+            .set_setting(DUCK_DEPTH_KEY, &d.to_string())
+            .map_err(err)?;
+        let on = lock(&s.automix).duck_on;
+        s.send(engine::Command::SetDuck { on, depth_db: d })
+    })
+    .await
 }
 
 // ----- output devices -----
@@ -647,6 +837,7 @@ pub async fn queue_add(
     track_ids: Vec<i64>,
     before: Option<u64>,
 ) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| {
         lock(&s.queue).add(&track_ids, before);
         s.queue_entries()
@@ -660,6 +851,7 @@ pub async fn queue_add_paths(
     paths: Vec<PathBuf>,
     before: Option<u64>,
 ) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| {
         s.queue_add_paths(&paths, before)?;
         s.queue_entries()
@@ -673,6 +865,7 @@ pub async fn queue_move(
     uids: Vec<u64>,
     before: Option<u64>,
 ) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| {
         lock(&s.queue).move_items(&uids, before);
         s.queue_entries()
@@ -682,6 +875,7 @@ pub async fn queue_move(
 
 #[tauri::command]
 pub async fn queue_remove(state: St<'_>, uids: Vec<u64>) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, move |s| {
         lock(&s.queue).remove(&uids);
         s.queue_entries()
@@ -691,6 +885,7 @@ pub async fn queue_remove(state: St<'_>, uids: Vec<u64>) -> AppResult<Vec<QueueE
 
 #[tauri::command]
 pub async fn queue_clear(state: St<'_>) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, |s| {
         lock(&s.queue).clear();
         s.queue_entries()
@@ -700,6 +895,7 @@ pub async fn queue_clear(state: St<'_>) -> AppResult<Vec<QueueEntry>> {
 
 #[tauri::command]
 pub async fn queue_shuffle(state: St<'_>) -> AppResult<Vec<QueueEntry>> {
+    state.lock_check(Action::Music)?;
     blocking(&state, |s| {
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
