@@ -6,6 +6,27 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:29 — M6: Secure radio streams fixed; the two old stations found and working
+- **Fixed (found by trying the real stations):** secure (https) streams would have stopped
+  the radio connection with a crash, because a TLS option of the network library was not
+  switched on — the local test server uses plain http, so the tests could not see it. Secure
+  streams now use rustls and check certificates against the Windows certificate store.
+- **Decision:** rustls / ring / the Windows-certificate-store verifier (Apache-2.0, ISC, MIT)
+  instead of the library's built-in option, which would have added Mozilla's certificate list
+  under the CDLA-Permissive-2.0 data licence — a licence outside the pre-approved list.
+- **Found:** the real stream addresses of the two stations from the old app (PLAN open item):
+  - Bravo (LIVE): `https://relay1.social3.hr/radio/8310/radio.mp3` (the old
+    `player.html?stream=0` address is the web page around it);
+  - Radio Dalmacija: `http://shoutcast.pondi.hr:8000/listen.pls` (also
+    `https://shoutcast.pondi.hr:9000/;stream/1`); the old `radio.php` address is a web page.
+- **Added:** test program `probe_station <url>` that tries station addresses with the real
+  radio code (connects and decodes a moment of audio, plays nothing).
+- **Tests:** on this PC with the real internet: Bravo → "bravo AAC (audio/mpeg)" decodes;
+  Radio Dalmacija → "Radio Dalmacija (audio/aacp)" decodes via both addresses; the two old
+  addresses give the "this is a web page, not a stream" message. All radio tests still pass.
+- **Not verified:** listening to both stations through the speakers (owner).
+- **Commit:** pending
+
 ### 2026-10-10 07:26 — M6: Internet radio engine — live deck source, station connection, titles, reconnect
 - **Added:** decks can play a live stream. A live deck keeps only the last 30 seconds in
   memory (a station can play for days), plays 2 seconds behind the newest audio to ride out
@@ -27,7 +48,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   Plus 1 live-deck test and 7 small unit tests (titles stripped from the audio, playlists,
   URLs, ring buffer).
 - **Not verified:** the two real stations from the old app (owner, on the bar PC).
-- **Commit:** pending
+- **Commit:** a7424ba
 
 ### 2026-10-10 07:19 — M5: Screens — Automix cockpit, LOCK, DUCK, master transport, DAY view, settings
 - **Added:** Automix cockpit above the queue: START / STOP, Skip (next track now), transition

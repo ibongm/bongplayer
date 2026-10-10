@@ -1,6 +1,7 @@
 //! Opening a station URL: plain HTTP with our own small client (it also accepts old
-//! SHOUTcast "ICY 200 OK" replies and sets socket timeouts), HTTPS through `ureq` with the
-//! Windows TLS stack. Redirects are followed in both cases.
+//! SHOUTcast "ICY 200 OK" replies and sets socket timeouts), HTTPS through `ureq` with
+//! rustls, checking certificates against the Windows certificate store. Redirects are followed
+//! in both cases.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -165,11 +166,12 @@ fn open_http(url: &str) -> Result<Result<Response, String>, RadioError> {
 }
 
 fn open_https(url: &str) -> Result<Response, RadioError> {
-    use ureq::tls::{TlsConfig, TlsProvider};
+    use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .tls_config(
             TlsConfig::builder()
-                .provider(TlsProvider::NativeTls)
+                .provider(TlsProvider::Rustls)
+                .root_certs(RootCerts::PlatformVerifier)
                 .build(),
         )
         .timeout_connect(Some(CONNECT_TIMEOUT))
