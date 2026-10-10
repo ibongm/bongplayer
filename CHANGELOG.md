@@ -6,13 +6,25 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 04:09 — M0: Automatic build on GitHub (CI) with Windows installer
+- **Added:** every push to GitHub now runs all checks (lint, typecheck, interface tests, Rust
+  formatting, clippy, Rust tests) on a Windows machine, and then builds the Windows installer
+  (`BongPlayer_<version>_x64-setup.exe`). The installer is attached to the run as a download
+  named `bongplayer-windows-installer`.
+- **Decision:** the installer is not code-signed (signing is not in the plan), so Windows
+  SmartScreen will warn on first install: click "More info" → "Run anyway".
+- **Tests:** locally `npm run tauri build` produced `BongPlayer_0.1.0_x64-setup.exe` (1.8 MB).
+  The GitHub run result is recorded in the next entry.
+- **Not verified:** installing and opening the app on the bar PC (owner check).
+- **Commit:** pending
+
 ### 2026-10-10 04:09 — M0: Development server port changed to 5173
 - **Fixed:** `npm run dev` / `npm run tauri dev` could not start on this PC ("permission denied"
   on port 1420). Windows (Hyper-V / WSL) reserves ports 1359–1458 here. The development server
   now uses port 5173. This only affects development, not the installed app.
 - **Tests:** `npm run dev` starts and serves the page on port 5173 (checked by HTTP request).
 - **Not verified:** none.
-- **Commit:** pending
+- **Commit:** 5b6c11a
 
 ### 2026-10-10 04:05 — M0: Automatic checks (lint, typecheck, tests)
 - **Added:** automatic checks that run with one command each: code style (`npm run lint`),
