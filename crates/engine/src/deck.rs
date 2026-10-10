@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use stretch::Stretch;
 
+use crate::live::LiveBuffer;
 use crate::resample::SincTable;
 use crate::track::TrackBuffer;
 
@@ -30,20 +31,61 @@ const SCRATCH_GLIDE_SECONDS: f64 = 0.006;
 /// Fastest a record may be pushed by hand, in multiples of normal speed.
 const MAX_SCRATCH_SPEED: f64 = 8.0;
 
+/// Where a deck's audio comes from.
+#[derive(Debug, Clone)]
+pub enum Source {
+    /// A decoded file (seekable, has an end).
+    File(Arc<TrackBuffer>),
+    /// A live stream (internet radio): plays near the newest audio, never ends.
+    Live(Arc<LiveBuffer>),
+}
+
+impl Source {
+    pub fn sample_rate(&self) -> u32 {
+        match self {
+            Self::File(b) => b.sample_rate(),
+            Self::Live(l) => l.sample_rate(),
+        }
+    }
+}
+
 /// A track ready to be put on a deck: audio plus the interpolation kernel for the current
 /// output rate. Built off the audio thread.
 #[derive(Debug, Clone)]
 pub struct LoadedTrack {
-    pub buffer: Arc<TrackBuffer>,
+    pub source: Source,
     pub kernel: Arc<SincTable>,
 }
 
 impl LoadedTrack {
     pub fn new(buffer: Arc<TrackBuffer>, out_rate: u32) -> Self {
-        let kernel = Arc::new(SincTable::for_rates(buffer.sample_rate(), out_rate));
-        Self { buffer, kernel }
+        Self::from_source(Source::File(buffer), out_rate)
+    }
+
+    pub fn live(live: Arc<LiveBuffer>, out_rate: u32) -> Self {
+        Self::from_source(Source::Live(live), out_rate)
+    }
+
+    pub fn from_source(source: Source, out_rate: u32) -> Self {
+        let kernel = Arc::new(SincTable::for_rates(source.sample_rate(), out_rate));
+        Self { source, kernel }
+    }
+
+    /// The decoded file, if this is one.
+    pub fn file(&self) -> Option<&Arc<TrackBuffer>> {
+        match &self.source {
+            Source::File(b) => Some(b),
+            Source::Live(_) => None,
+        }
+    }
+
+    pub fn is_live(&self) -> bool {
+        matches!(self.source, Source::Live(_))
     }
 }
+
+/// Seconds a live deck stays behind the newest audio (absorbs network jitter).
+pub const LIVE_PREBUFFER_SECONDS: f64 = 2.0;
 
 pub struct Deck {
     track: Option<LoadedTrack>,
@@ -139,7 +181,7 @@ impl Deck {
         let tau = SCRATCH_GLIDE_SECONDS * f64::from(self.out_rate);
         self.scratch_coeff = 1.0 - (-1.0 / tau).exp();
         if let Some(t) = &self.track {
-            self.base_step = f64::from(t.buffer.sample_rate()) / f64::from(self.out_rate);
+            self.base_step = f64::from(t.source.sample_rate()) / f64::from(self.out_rate);
         }
     }
 
@@ -150,7 +192,7 @@ impl Deck {
         self.out_rate = out_rate.max(1);
         self.stretch = Stretch::new(self.out_rate);
         if let Some(track) = self.track.as_mut() {
-            let file_rate = track.buffer.sample_rate();
+            let file_rate = track.source.sample_rate();
             track.kernel = Arc::new(SincTable::for_rates(file_rate, self.out_rate));
         }
         self.update_rate_constants();
@@ -186,6 +228,11 @@ impl Deck {
 
     pub fn track(&self) -> Option<&LoadedTrack> {
         self.track.as_ref()
+    }
+
+    /// A live stream is loaded (no seeking, loops, pitch or scratching).
+    pub fn is_live(&self) -> bool {
+        self.track.as_ref().is_some_and(LoadedTrack::is_live)
     }
 
     pub fn play(&mut self) {
@@ -233,6 +280,9 @@ impl Deck {
 
     /// Moves to `frame` (track frames), clamped to the start of the track.
     pub fn seek(&mut self, frame: f64) {
+        if self.is_live() {
+            return;
+        }
         if frame.is_finite() {
             self.ended = false;
             self.jump_to(frame.max(0.0));
@@ -433,7 +483,7 @@ impl Deck {
 
     /// Loop of `length` track frames starting at the current position.
     pub fn auto_loop(&mut self, length: f64) {
-        if !(length.is_finite() && length > 0.0) || self.track.is_none() {
+        if !(length.is_finite() && length > 0.0) || self.track.is_none() || self.is_live() {
             return;
         }
         let start = self.position();
@@ -472,7 +522,7 @@ impl Deck {
 
     /// The DJ grabs the platter: the record now follows [`Deck::scratch_move`].
     pub fn scratch_start(&mut self) {
-        if self.track.is_none() {
+        if self.track.as_ref().is_none_or(LoadedTrack::is_live) {
             return;
         }
         let audible = self.position();
@@ -511,6 +561,11 @@ impl Deck {
             out.fill(0.0);
             return;
         }
+        if self.is_live() {
+            self.stretch_active = false;
+            self.render_direct(out, self.base_step);
+            return;
+        }
         for chunk in out.chunks_mut(2 * BLOCK) {
             if self.scratching {
                 self.render_scratch(chunk);
@@ -528,8 +583,35 @@ impl Deck {
     fn total(&self) -> Option<f64> {
         self.track
             .as_ref()
-            .and_then(|t| t.buffer.total_frames())
+            .and_then(|t| t.file())
+            .and_then(|b| b.total_frames())
             .map(|t| t as f64)
+    }
+
+    /// A live stream: plays at normal speed a little behind the newest audio; waits (silence)
+    /// while the stream stutters; never ends.
+    fn render_live(&mut self, out: &mut [f32], live: &Arc<LiveBuffer>, kernel: &SincTable) {
+        let rate = f64::from(live.sample_rate().max(1));
+        let step = rate / f64::from(self.out_rate.max(1));
+        let pre = LIVE_PREBUFFER_SECONDS * rate;
+        let written = live.written() as f64;
+        let oldest = written - live.capacity() as f64 + rate;
+        // Not started yet, or fell out of the ring (long pause): rejoin near live.
+        if self.head < oldest || (self.head == 0.0 && written >= pre) {
+            self.head = (written - pre).max(0.0);
+        }
+        for frame in out.as_chunks_mut::<2>().0 {
+            let available = live.written() as f64;
+            if !self.playing || self.head + 64.0 >= available || available < pre {
+                frame.fill(0.0);
+                continue;
+            }
+            let (l, r) = kernel.read(live.as_ref(), self.head);
+            frame[0] = l;
+            frame[1] = r;
+            // The stream rate is only known once connected, so it is read here.
+            self.head += step;
+        }
     }
 
     fn render_direct(&mut self, out: &mut [f32], step: f64) {
@@ -538,6 +620,15 @@ impl Deck {
             out.fill(0.0);
             return;
         };
+        let buffer = match &track.source {
+            Source::File(b) => Arc::clone(b),
+            Source::Live(l) => {
+                let (l, k) = (Arc::clone(l), Arc::clone(&track.kernel));
+                self.render_live(out, &l, &k);
+                return;
+            }
+        };
+        let kernel = Arc::clone(&track.kernel);
         for frame in out.as_chunks_mut::<2>().0 {
             // While still decoding, frames beyond the decoded part read as silence and the
             // head keeps moving; the end is only known once decoding is done.
@@ -557,7 +648,7 @@ impl Deck {
                     }
                 }
             }
-            let (l, r) = track.kernel.read(&track.buffer, self.head);
+            let (l, r) = kernel.read(buffer.as_ref(), self.head);
             frame[0] = l;
             frame[1] = r;
             self.head += step;
@@ -565,7 +656,12 @@ impl Deck {
     }
 
     fn render_scratch(&mut self, out: &mut [f32]) {
-        let Some(track) = self.track.as_ref() else {
+        // Only files can be scratched; a live stream keeps playing.
+        let Some((buffer, kernel)) = self
+            .track
+            .as_ref()
+            .and_then(|t| t.file().map(|b| (Arc::clone(b), Arc::clone(&t.kernel))))
+        else {
             out.fill(0.0);
             return;
         };
@@ -573,7 +669,7 @@ impl Deck {
         for frame in out.as_chunks_mut::<2>().0 {
             let wanted = (self.scratch_target - self.head) * self.scratch_coeff;
             self.scratch_speed = wanted.clamp(-max_speed, max_speed);
-            let (l, r) = track.kernel.read(&track.buffer, self.head);
+            let (l, r) = kernel.read(buffer.as_ref(), self.head);
             frame[0] = l;
             frame[1] = r;
             self.head = (self.head + self.scratch_speed).max(0.0);

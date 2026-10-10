@@ -11,6 +11,7 @@ pub mod engine;
 pub mod eq;
 pub mod filter;
 pub mod limiter;
+pub mod live;
 pub mod mixer;
 mod mp4_edit;
 pub mod offline;

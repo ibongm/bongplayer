@@ -254,3 +254,49 @@ fn filter_low_pass_high_pass_and_off() {
     assert!(engine_level(-0.5, 5_000.0) < -20.0);
     assert!(engine_level(-0.5, 200.0) > -3.5);
 }
+
+// ----- live sources (M6) -----
+
+use engine::live::LiveBuffer;
+
+#[test]
+fn live_deck_plays_behind_the_newest_audio_waits_on_underrun_and_never_ends() {
+    let live = Arc::new(LiveBuffer::new(SR));
+    let mut d = Deck::new(SR);
+    d.load(LoadedTrack::live(Arc::clone(&live), SR));
+    d.play();
+    // Nothing yet: silence, still "playing" (waiting for the stream).
+    let out = render(&mut d, 4_800);
+    assert!(out.iter().all(|v| *v == 0.0));
+
+    // 3 s of an index-encoded stream arrive.
+    let feed = |from: usize, n: usize| -> Vec<f32> {
+        (from..from + n)
+            .flat_map(|i| {
+                [
+                    (i % 32_768) as f32 / 32_768.0,
+                    (i / 32_768) as f32 / 32_768.0,
+                ]
+            })
+            .collect()
+    };
+    live.push(&feed(0, 3 * SR as usize));
+    let out = indices(&render(&mut d, 4_800));
+    // Plays 2 s behind the newest frame (prebuffer), continuously.
+    assert_eq!(out[0], SR as i64);
+    assert_eq!(out[4_799], SR as i64 + 4_799);
+
+    // The stream stalls: when the deck catches up it outputs silence instead of garbage.
+    let out = render(&mut d, 2 * SR as usize);
+    let tail = &out[out.len() - 200..];
+    assert!(tail.iter().all(|v| *v == 0.0), "underrun is silent");
+    assert!(d.is_playing() && !d.has_ended(), "a live deck never ends");
+
+    // Seeking, loops and scratching do nothing on a live stream.
+    let before = d.position();
+    d.seek(10.0);
+    d.auto_loop(1_000.0);
+    d.scratch_start();
+    assert_eq!(d.position(), before);
+    assert!(!d.loop_state().2 && !d.is_scratching());
+}

@@ -528,6 +528,16 @@ impl EngineHandle {
         self.send(Command::Load { deck, track })
     }
 
+    /// Puts a live stream (internet radio) on a deck, stopped.
+    pub fn load_live(
+        &mut self,
+        deck: DeckId,
+        live: Arc<crate::live::LiveBuffer>,
+    ) -> Result<(), EngineError> {
+        let track = LoadedTrack::live(live, self.status.sample_rate());
+        self.send(Command::Load { deck, track })
+    }
+
     pub fn status(&self) -> &EngineStatus {
         &self.status
     }

@@ -4,7 +4,27 @@
 //! between samples. The same code resamples (44.1 kHz file on a 48 kHz device) and, from M2,
 //! handles pitch, reverse and scratching, which a stream resampler cannot do.
 
+use crate::live::LiveBuffer;
 use crate::track::TrackBuffer;
+
+/// Anything the interpolator can read frames from.
+pub trait FrameSource {
+    fn frame(&self, index: i64) -> (f32, f32);
+}
+
+impl FrameSource for TrackBuffer {
+    #[inline]
+    fn frame(&self, index: i64) -> (f32, f32) {
+        TrackBuffer::frame(self, index)
+    }
+}
+
+impl FrameSource for LiveBuffer {
+    #[inline]
+    fn frame(&self, index: i64) -> (f32, f32) {
+        LiveBuffer::frame(self, index)
+    }
+}
 
 /// Kernel half-width in samples; the kernel spans `2 * HALF_TAPS` input samples.
 pub const HALF_TAPS: usize = 32;
@@ -93,7 +113,7 @@ impl SincTable {
 
     /// Signal value at fractional frame `pos`. Realtime-safe (no allocation, atomics only).
     #[inline]
-    pub fn read(&self, track: &TrackBuffer, pos: f64) -> (f32, f32) {
+    pub fn read<S: FrameSource>(&self, track: &S, pos: f64) -> (f32, f32) {
         let base = pos.floor();
         let i = base as i64;
         let frac = pos - base;

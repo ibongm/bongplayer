@@ -6,6 +6,29 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:26 — M6: Internet radio engine — live deck source, station connection, titles, reconnect
+- **Added:** decks can play a live stream. A live deck keeps only the last 30 seconds in
+  memory (a station can play for days), plays 2 seconds behind the newest audio to ride out
+  network hiccups, is silent (not noisy) while the stream stutters, and never "ends". Seek,
+  loops, pitch and scratching do not apply to radio.
+- **Added:** the radio part (`crates/radio`): opens a station address, follows redirects (e.g.
+  a `radio.php` link), reads `.pls` and `.m3u` playlists, accepts old SHOUTcast servers
+  ("ICY 200 OK"), plays MP3, AAC and Ogg streams, and shows the song title the station sends.
+- **Added:** if a station address is a web page (like the bravo.hr player page), it says
+  "this is a web page, not a stream — open it in a browser and look for the stream link"
+  instead of failing silently. HLS (.m3u8 with segments) is reported as not supported yet.
+- **Added:** after a drop-out the station reconnects by itself, waiting 1, 2, 4, 8 then 10 s
+  between tries; a connection that stays silent for 15 s is abandoned and replaced.
+- **Decision:** library `ureq` (MIT/Apache-2.0) for secure (https) streams, using Windows' own
+  TLS (no extra crypto libraries); plain http uses a small built-in client with timeouts.
+- **Tests:** 8 tests against a fake Icecast server on this PC pass — plain MP3 with ICY title
+  changes, AAC, SHOUTcast reply, redirect, PHP link, `.pls`, `.m3u`, mid-stream disconnect →
+  reconnect, HTML page → clear message and no retrying, HLS → "not supported", 404 → error.
+  Plus 1 live-deck test and 7 small unit tests (titles stripped from the audio, playlists,
+  URLs, ring buffer).
+- **Not verified:** the two real stations from the old app (owner, on the bar PC).
+- **Commit:** pending
+
 ### 2026-10-10 07:19 — M5: Screens — Automix cockpit, LOCK, DUCK, master transport, DAY view, settings
 - **Added:** Automix cockpit above the queue: START / STOP, Skip (next track now), transition
   style, Trigger and Fade seconds, Loop / Shuffle / Auto-remove. The playing entry (▶) and
@@ -28,7 +51,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   unlocks, holding 2 s unlocks; DUCK button and D key; master transport; DAY view shows now
   playing / up next; Settings saves Automix defaults and sets a PIN. Looked at in a browser.
 - **Not verified:** "Start with Windows" (needs the installed app); the 12-hour soak test (owner).
-- **Commit:** pending
+- **Commit:** 896a75b
 
 ### 2026-10-10 07:12 — M5: Automix controller, resume after a crash, LOCK, DUCK (app side)
 - **Added:** Automix plays the queue on its own: the next track is loaded early on the other
