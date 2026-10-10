@@ -13,7 +13,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Tests:** GitHub Actions run 38015956130 on `m0-scaffold` passed both jobs ("Lint, typecheck
   and tests" and "Windows installer (NSIS)"); artifact `bongplayer-windows-installer` (1.8 MB) uploaded.
 - **Not verified:** installer runs on the bar PC and the window opens with the app shell (owner check).
-- **Commit:** pending
+- **Commit:** fbe163a
 
 ### 2026-10-10 04:09 — M0: Automatic build on GitHub (CI) with Windows installer
 - **Added:** every push to GitHub now runs all checks (lint, typecheck, interface tests, Rust
