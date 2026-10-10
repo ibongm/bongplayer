@@ -38,6 +38,10 @@ pub struct Mixer {
     /// Lowers the music while a sampler pad plays.
     pub sampler_duck: Ducker,
     pub limiter: Limiter,
+    /// Headphone cue on deck A / B.
+    pub cue: [bool; 2],
+    /// Headphones: 0 = only the cued decks, 1 = only the master.
+    cue_mix: Smoothed,
 }
 
 impl Mixer {
@@ -61,6 +65,8 @@ impl Mixer {
                 d
             },
             limiter: Limiter::new(sample_rate),
+            cue: [false; 2],
+            cue_mix: Smoothed::new(0.0, sample_rate),
         }
     }
 
@@ -87,8 +93,22 @@ impl Mixer {
         self.master.set(db_to_gain(db));
     }
 
+    /// Headphone blend: 0 = only the cued decks, 1 = only the master.
+    pub fn set_cue_mix(&mut self, mix: f32) {
+        self.cue_mix.set(if mix.is_nan() {
+            0.0
+        } else {
+            mix.clamp(0.0, 1.0)
+        });
+    }
+
+    pub fn cue_mix(&self) -> f32 {
+        self.cue_mix.target()
+    }
+
     /// Jumps all parameters to their targets (no glide).
     pub fn snap(&mut self) {
+        self.cue_mix.snap();
         self.crossfader.snap();
         self.master.snap();
         self.strips.iter_mut().for_each(ChannelStrip::snap);
@@ -109,9 +129,39 @@ impl Mixer {
         sampler: Option<&[f32]>,
         out: &mut [f32],
     ) {
+        self.process_full(a, b, sampler, out, None);
+    }
+
+    /// Everything: decks, sampler, master into `out`, and the headphone mix into `cue` (same
+    /// length) when given. With no deck cued the headphones hear the master. Realtime-safe.
+    pub fn process_full(
+        &mut self,
+        a: &mut [f32],
+        b: &mut [f32],
+        sampler: Option<&[f32]>,
+        out: &mut [f32],
+        mut cue: Option<&mut [f32]>,
+    ) {
+        if let Some(c) = cue.as_deref_mut() {
+            c.fill(0.0);
+        }
         let [strip_a, strip_b] = &mut self.strips;
-        strip_a.process(a);
-        strip_b.process(b);
+        strip_a.process_tapped(
+            a,
+            if self.cue[0] {
+                cue.as_deref_mut()
+            } else {
+                None
+            },
+        );
+        strip_b.process_tapped(
+            b,
+            if self.cue[1] {
+                cue.as_deref_mut()
+            } else {
+                None
+            },
+        );
         let frames = out.as_chunks_mut::<2>().0;
         let a = a.as_chunks::<2>().0;
         let b = b.as_chunks::<2>().0;
@@ -124,6 +174,26 @@ impl Mixer {
             let s = pads.get(i).copied().unwrap_or([0.0, 0.0]);
             o[0] = (fa[0] * ga + fb[0] * gb) * music + s[0] * master;
             o[1] = (fa[1] * ga + fb[1] * gb) * music + s[1] * master;
+        }
+        if let Some(c) = cue {
+            let any = self.cue[0] || self.cue[1];
+            for (h, o) in c
+                .as_chunks_mut::<2>()
+                .0
+                .iter_mut()
+                .zip(out.as_chunks::<2>().0)
+            {
+                let mix = self.cue_mix.step();
+                for ch in 0..2 {
+                    let v = if any {
+                        h[ch] * (1.0 - mix) + o[ch] * mix
+                    } else {
+                        o[ch]
+                    };
+                    // Headphones have no limiter: keep them inside full scale.
+                    h[ch] = v.clamp(-1.0, 1.0);
+                }
+            }
         }
         self.limiter.process(out);
     }

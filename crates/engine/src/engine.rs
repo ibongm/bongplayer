@@ -13,6 +13,7 @@ use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::deck::{Deck, LoadedTrack, HOT_CUES};
 use crate::eq::Band;
+use crate::fx::FxKind;
 use crate::mixer::{Mixer, SAMPLER_DUCK_DB};
 use crate::sampler::{Sample, Sampler, PADS};
 use crate::track::TrackBuffer;
@@ -210,6 +211,29 @@ pub enum Command {
         pad: usize,
         group: u8,
     },
+    /// The deck's effect (Off switches it out).
+    SetFx {
+        deck: DeckId,
+        kind: FxKind,
+    },
+    /// STR and SPD, 0 … 1.
+    SetFxParams {
+        deck: DeckId,
+        strength: f32,
+        speed: f32,
+    },
+    /// Length of one beat on the deck, for the echo.
+    SetFxBeat {
+        deck: DeckId,
+        seconds: f64,
+    },
+    /// Headphone cue on / off for a deck.
+    SetCue {
+        deck: DeckId,
+        on: bool,
+    },
+    /// Headphones: 0 = cued decks only … 1 = master only.
+    SetCueMix(f32),
 }
 
 /// Memory the audio thread lets go of; freed on the control thread.
@@ -379,6 +403,10 @@ pub struct EngineStatus {
     duck_db_bits: AtomicU32,
     sampler_duck_db_bits: AtomicU32,
     pads_playing: AtomicU32,
+    /// Bit 0 = deck A cued, bit 1 = deck B.
+    cue_bits: AtomicU32,
+    /// Channels of the sound card in use (0 = none yet).
+    output_channels: AtomicU32,
     /// Deck A (after its channel strip), deck B, master output.
     meters: [Meter; 3],
 }
@@ -415,6 +443,15 @@ impl EngineStatus {
     pub fn sampler_duck_db(&self) -> f32 {
         f32::from_bits(self.sampler_duck_db_bits.load(Ordering::Relaxed))
     }
+    /// Channels of the sound card now playing (4 or more: headphones on channels 3–4).
+    pub fn output_channels(&self) -> u32 {
+        self.output_channels.load(Ordering::Relaxed)
+    }
+    /// Headphone cue on deck A / B.
+    pub fn cue(&self) -> [bool; 2] {
+        let b = self.cue_bits.load(Ordering::Relaxed);
+        [b & 1 != 0, b & 2 != 0]
+    }
     /// Bit `i` set = sampler pad `i` is playing.
     pub fn pads_playing(&self) -> u8 {
         (self.pads_playing.load(Ordering::Relaxed) & 0xff) as u8
@@ -436,6 +473,11 @@ struct MixerSettings {
     crossfader: f32,
     master_db: f32,
     ceiling_db: f32,
+    fx_kind: [FxKind; 2],
+    fx_params: [(f32, f32); 2],
+    fx_beat: [f64; 2],
+    cue: [bool; 2],
+    cue_mix: f32,
 }
 
 impl Default for MixerSettings {
@@ -449,6 +491,11 @@ impl Default for MixerSettings {
             crossfader: 0.5,
             master_db: 0.0,
             ceiling_db: crate::limiter::DEFAULT_CEILING_DB,
+            fx_kind: [FxKind::Off; 2],
+            fx_params: [(0.0, 0.5); 2],
+            fx_beat: [0.5; 2],
+            cue: [false; 2],
+            cue_mix: 0.0,
         }
     }
 }
@@ -464,7 +511,12 @@ impl MixerSettings {
                 s.set_eq_gain_db(band, self.eq_db[d][band as usize]);
                 s.set_kill(band, self.kill[d][band as usize]);
             }
+            s.fx.set_kind(self.fx_kind[d]);
+            s.fx.set_params(self.fx_params[d].0, self.fx_params[d].1);
+            s.fx.set_beat_seconds(self.fx_beat[d]);
         }
+        m.cue = self.cue;
+        m.set_cue_mix(self.cue_mix);
         m.set_crossfader(self.crossfader);
         m.set_master_db(self.master_db);
         m.limiter.set_ceiling_db(self.ceiling_db);
@@ -482,6 +534,7 @@ pub struct Engine {
     buf_b: Vec<f32>,
     buf_s: Vec<f32>,
     sampler: Sampler,
+    buf_cue: Vec<f32>,
     transition: Option<Transition>,
     commands: Consumer<Command>,
     garbage: Producer<Garbage>,
@@ -537,6 +590,7 @@ pub fn new_engine(sample_rate: u32) -> (EngineHandle, Engine) {
         buf_b: vec![0.0; 2 * MAX_BLOCK],
         buf_s: vec![0.0; 2 * MAX_BLOCK],
         sampler: Sampler::new(sample_rate),
+        buf_cue: vec![0.0; 2 * MAX_BLOCK],
         transition: None,
         commands: cmd_rx,
         garbage: gc_tx,
@@ -646,6 +700,24 @@ impl Engine {
     /// Fills `out` (interleaved stereo) with the next block of the mix. Realtime-safe:
     /// no allocation, locks, I/O or logging.
     pub fn process(&mut self, out: &mut [f32]) {
+        self.process_inner(out, None);
+    }
+
+    /// Records how many channels the sound card has (the output calls this). Realtime-safe.
+    pub fn set_output_channels(&self, channels: usize) {
+        self.status.output_channels.store(
+            u32::try_from(channels).unwrap_or(u32::MAX),
+            Ordering::Relaxed,
+        );
+    }
+
+    /// Like [`Engine::process`], and fills `cue` (same length as `out`) with the headphone
+    /// mix. Realtime-safe.
+    pub fn process_with_cue(&mut self, out: &mut [f32], cue: &mut [f32]) {
+        self.process_inner(out, Some(cue));
+    }
+
+    fn process_inner(&mut self, out: &mut [f32], mut cue: Option<&mut [f32]>) {
         self.apply_commands();
         let mut acc = [MeterAcc::default(); 3];
         // During a transition, automation runs every 256 frames (≈ 5 ms).
@@ -654,8 +726,9 @@ impl Engine {
         } else {
             MAX_BLOCK
         };
-        for block in out.chunks_mut(2 * chunk) {
+        for (bi, block) in out.chunks_mut(2 * chunk).enumerate() {
             let n = block.len() & !1;
+            let start = bi * 2 * chunk;
             self.automate((n / 2) as u64);
             let (a, b) = (&mut self.buf_a[..n], &mut self.buf_b[..n]);
             self.decks[0].render(a);
@@ -667,8 +740,23 @@ impl Engine {
             let pads_on = self.sampler.any_playing();
             self.sampler.render_add(pads);
             self.mixer.sampler_duck.set(pads_on, SAMPLER_DUCK_DB);
-            self.mixer
-                .process_with_sampler(a, b, Some(pads), &mut block[..n]);
+            let head = &mut self.buf_cue[..n];
+            let want_cue = cue.is_some();
+            self.mixer.process_full(
+                a,
+                b,
+                Some(pads),
+                &mut block[..n],
+                if want_cue { Some(&mut *head) } else { None },
+            );
+            if let Some(c) = cue.as_deref_mut() {
+                if let Some(dst) = c.get_mut(start..start + n) {
+                    dst.copy_from_slice(head);
+                }
+                if let Some(rest) = c.get_mut(start + n..start + block.len()) {
+                    rest.fill(0.0);
+                }
+            }
             block[n..].fill(0.0);
             acc[0].add(a);
             acc[1].add(b);
@@ -693,6 +781,8 @@ impl Engine {
         self.status
             .pads_playing
             .store(u32::from(self.sampler.playing_mask()), Ordering::Relaxed);
+        let cue_bits = u32::from(self.settings.cue[0]) | (u32::from(self.settings.cue[1]) << 1);
+        self.status.cue_bits.store(cue_bits, Ordering::Relaxed);
         for (deck, s) in self.decks.iter().zip(&self.status.decks) {
             s.publish(deck);
         }
@@ -912,6 +1002,33 @@ impl Engine {
                 }
             }
             Command::TriggerPad(pad) => self.sampler.trigger(pad),
+            Command::SetFx { deck, kind } => {
+                s.fx_kind[deck as usize] = kind;
+                self.mixer.strips[deck as usize].fx.set_kind(kind);
+            }
+            Command::SetFxParams {
+                deck,
+                strength,
+                speed,
+            } => {
+                let fx = &mut self.mixer.strips[deck as usize].fx;
+                fx.set_params(strength, speed);
+                s.fx_params[deck as usize] = fx.params();
+            }
+            Command::SetFxBeat { deck, seconds } => {
+                s.fx_beat[deck as usize] = seconds;
+                self.mixer.strips[deck as usize]
+                    .fx
+                    .set_beat_seconds(seconds);
+            }
+            Command::SetCue { deck, on } => {
+                s.cue[deck as usize] = on;
+                self.mixer.cue[deck as usize] = on;
+            }
+            Command::SetCueMix(mix) => {
+                self.mixer.set_cue_mix(mix);
+                s.cue_mix = self.mixer.cue_mix();
+            }
             Command::StopPad(pad) => self.sampler.stop(pad),
             Command::StopAllPads => self.sampler.stop_all(),
             Command::SetPadGainDb { pad, db } => self.sampler.set_gain_db(pad, db),

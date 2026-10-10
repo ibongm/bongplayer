@@ -1,8 +1,10 @@
-//! Mixer channel strip: trim → 3-band EQ → filter → channel fader.
+//! Mixer channel strip: trim → 3-band EQ → filter → deck effect → (Automix echo) → channel
+//! fader. The headphone cue listens just before the fader.
 
 use crate::effects::Echo;
 use crate::eq::{db_to_gain, Band, Smoothed, ThreeBandEq};
 use crate::filter::DjFilter;
+use crate::fx::DeckFx;
 
 /// Most trim boost allowed.
 pub const MAX_TRIM_DB: f32 = 12.0;
@@ -12,6 +14,8 @@ pub struct ChannelStrip {
     trim: Smoothed,
     pub eq: ThreeBandEq,
     pub filter: DjFilter,
+    /// The deck's effect (Echo, Flanger, Filter) with STR / SPD.
+    pub fx: DeckFx,
     /// Echo used by Automix's Echo-Out (wet signal added after the filter).
     pub echo: Echo,
     /// Level of the direct (non-echo) signal; Echo-Out fades it while the echo rings on.
@@ -25,6 +29,7 @@ impl ChannelStrip {
             trim: Smoothed::new(1.0, sample_rate),
             eq: ThreeBandEq::new(sample_rate),
             filter: DjFilter::new(sample_rate),
+            fx: DeckFx::new(sample_rate),
             echo: Echo::new(sample_rate, 2.0),
             dry: Smoothed::new(1.0, sample_rate),
             fader: Smoothed::new(1.0, sample_rate),
@@ -71,6 +76,7 @@ impl ChannelStrip {
 
     /// Jumps all parameters to their targets (no glide).
     pub fn snap(&mut self) {
+        self.fx.snap();
         self.trim.snap();
         self.fader.snap();
         self.eq.snap();
@@ -79,6 +85,12 @@ impl ChannelStrip {
 
     /// Processes interleaved stereo in place. Realtime-safe.
     pub fn process(&mut self, buf: &mut [f32]) {
+        self.process_tapped(buf, None);
+    }
+
+    /// Like [`ChannelStrip::process`]; also adds the signal just before the fader into `tap`
+    /// (the headphone cue). Realtime-safe.
+    pub fn process_tapped(&mut self, buf: &mut [f32], tap: Option<&mut [f32]>) {
         for frame in buf.as_chunks_mut::<2>().0 {
             let t = self.trim.step();
             frame[0] *= t;
@@ -86,11 +98,17 @@ impl ChannelStrip {
         }
         self.eq.process(buf);
         self.filter.process(buf);
+        self.fx.process(buf);
         for frame in buf.as_chunks_mut::<2>().0 {
             let d = self.dry.step();
             let (wl, wr) = self.echo.tick(frame[0], frame[1]);
             frame[0] = frame[0] * d + wl;
             frame[1] = frame[1] * d + wr;
+        }
+        if let Some(tap) = tap {
+            for (t, x) in tap.iter_mut().zip(buf.iter()) {
+                *t += *x;
+            }
         }
         for frame in buf.as_chunks_mut::<2>().0 {
             let f = self.fader.step();

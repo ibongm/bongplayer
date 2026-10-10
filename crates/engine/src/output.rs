@@ -27,6 +27,7 @@ pub struct EngineSlot {
     engine: Option<Engine>,
     home: Sender<Engine>,
     scratch: Vec<f32>,
+    cue: Vec<f32>,
 }
 
 impl EngineSlot {
@@ -35,6 +36,7 @@ impl EngineSlot {
             engine: Some(engine),
             home,
             scratch: vec![0.0; 2 * MAX_BLOCK],
+            cue: vec![0.0; 2 * MAX_BLOCK],
         }
     }
 
@@ -44,23 +46,38 @@ impl EngineSlot {
     }
 
     /// Fills a device buffer of `channels` interleaved channels. Left/right go to the first two
-    /// channels, other channels get silence; a mono device gets the average. Realtime-safe.
+    /// channels; on a device with 4 or more channels (the DDJ-400) channels 3–4 get the
+    /// headphone mix; other channels get silence; a mono device gets the average. Realtime-safe.
     pub fn render<T: Copy>(&mut self, out: &mut [T], channels: usize, convert: impl Fn(f32) -> T) {
         let channels = channels.max(1);
         let Some(engine) = self.engine.as_mut() else {
             out.fill(convert(0.0));
             return;
         };
+        engine.set_output_channels(channels);
         for dev_block in out.chunks_mut(MAX_BLOCK * channels) {
             let frames = dev_block.len() / channels;
             let stereo = &mut self.scratch[..2 * frames];
-            engine.process(stereo);
-            for (dev, s) in dev_block
+            let head = &mut self.cue[..2 * frames];
+            if channels >= 4 {
+                engine.process_with_cue(stereo, head);
+            } else {
+                engine.process(stereo);
+            }
+            for ((dev, s), h) in dev_block
                 .chunks_mut(channels)
                 .zip(stereo.as_chunks::<2>().0)
+                .zip(head.as_chunks::<2>().0)
             {
                 match dev {
                     [m] => *m = convert((s[0] + s[1]) * 0.5),
+                    [l, r, hl, hr, rest @ ..] => {
+                        *l = convert(s[0]);
+                        *r = convert(s[1]);
+                        *hl = convert(h[0]);
+                        *hr = convert(h[1]);
+                        rest.fill(convert(0.0));
+                    }
                     [l, r, rest @ ..] => {
                         *l = convert(s[0]);
                         *r = convert(s[1]);
@@ -385,5 +402,69 @@ impl<B: AudioBackend> Worker<B> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::engine::{new_engine, Command, DeckId};
+    use crate::track::TrackBuffer;
+
+    /// A deck playing a constant 0.25 signal, cued, with its fader closed.
+    fn cued_engine() -> Engine {
+        let (mut h, e) = new_engine(48_000);
+        let dc = vec![0.25f32; 2 * 48_000];
+        h.load(
+            DeckId::A,
+            Arc::new(TrackBuffer::from_interleaved(48_000, &dc)),
+        )
+        .expect("load");
+        for c in [
+            Command::SetFader {
+                deck: DeckId::A,
+                position: 0.0,
+            },
+            Command::SetCue {
+                deck: DeckId::A,
+                on: true,
+            },
+            Command::Play(DeckId::A),
+        ] {
+            h.send(c).expect("send");
+        }
+        // The handle may go: commands already queued stay in the engine's queue.
+        drop(h);
+        e
+    }
+
+    #[test]
+    fn four_channel_devices_get_the_headphones_on_channels_3_and_4() {
+        let (tx, _rx) = mpsc::channel();
+        let mut slot = EngineSlot::new(cued_engine(), tx);
+        let mut buf = vec![0.0f32; 4 * 4096];
+        slot.render(&mut buf, 4, |s| s);
+        assert_eq!(
+            slot.engine_mut().map(|e| e.status().output_channels()),
+            Some(4)
+        );
+        let last = &buf[buf.len() - 4..];
+        assert!(
+            last[0].abs() < 1e-4 && last[1].abs() < 1e-4,
+            "speakers: fader closed"
+        );
+        assert!(
+            (last[2] - 0.25).abs() < 0.01 && (last[3] - 0.25).abs() < 0.01,
+            "headphones: {last:?}"
+        );
+
+        // A stereo device just gets the master.
+        let (tx, _rx) = mpsc::channel();
+        let mut slot = EngineSlot::new(cued_engine(), tx);
+        let mut buf = vec![1.0f32; 2 * 4096];
+        slot.render(&mut buf, 2, |s| s);
+        assert!(buf[buf.len() - 2..].iter().all(|s| s.abs() < 1e-4));
     }
 }

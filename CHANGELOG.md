@@ -6,6 +6,26 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 12:10 — M11: Deck effects and headphone cue in the audio engine
+- **Added:** one effect per deck with two knobs, STR (strength) and SPD (speed):
+  **Echo** (repeats on the beat: ¼, ½, ¾, 1 or 2 beats, following the track's tempo),
+  **Flanger** (sweeping "jet" sound, one sweep every 8 s … ¼ s) and **Filter** (the highs
+  swept away and back, the bass stays). STR at 0 leaves the sound exactly as it was.
+- **Added:** headphone cue (pre-listen): CUE on a deck sends it to the headphones before
+  its channel fader, so the DJ can hear a track the audience does not. A CUE/MASTER knob
+  blends the headphones from only the cued deck to only the master; with nothing cued the
+  headphones hear the master. On a sound card with 4 or more channels (like the DDJ-400)
+  the headphones get channels 3–4; the app reports how many channels the card has.
+- **Tests:** 7 new engine tests pass: STR 0 / Off change nothing; echo exactly one beat
+  later at 0.8 and quieter after, moving with the BPM; flanger sweeps more than 6 dB and stays
+  in level; filter sweeps the highs by more than 20 dB while the bass stays within 1 dB;
+  effects on one deck only and kept across a sound-card change; the cued deck is in the
+  headphones (not the speakers) with its fader closed, the blend works, nothing cued = master;
+  a 4-channel card gets the headphones on channels 3–4, a stereo card just the master.
+- **Not verified:** whether Windows gives BongPlayer the DDJ-400's channels 3–4 (the M2
+  headphone spike, `channel_test`, answers this on the bar PC); how the effects sound.
+- **Commit:** pending
+
 ### 2026-10-10 12:04 — M10: Skins and the rest of Settings
 - **Added:** four skins in Settings → **Appearance**: Midnight Slate (the default dark glass),
   Pioneer Stealth (black, orange highlights), Technics Silver (light silver) and Day Shift
@@ -31,7 +51,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   change the table; Radio tab deletes after asking; shortcuts listed; .css and too-large
   files are refused by the app.
 - **Not verified:** how the four skins look on the bar screen (owner).
-- **Commit:** pending
+- **Commit:** 671fac5
 
 ### 2026-10-10 11:58 — M9: Sampler strip and deck pads
 - **Added:** a **SAMPLER** button in the top bar (Ctrl+P) opens the Sampler strip under it:

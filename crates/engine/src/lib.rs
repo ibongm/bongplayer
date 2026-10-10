@@ -10,6 +10,7 @@ pub mod effects;
 pub mod engine;
 pub mod eq;
 pub mod filter;
+pub mod fx;
 pub mod limiter;
 pub mod live;
 pub mod mixer;
