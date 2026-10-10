@@ -6,6 +6,30 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:19 — M5: Screens — Automix cockpit, LOCK, DUCK, master transport, DAY view, settings
+- **Added:** Automix cockpit above the queue: START / STOP, Skip (next track now), transition
+  style, Trigger and Fade seconds, Loop / Shuffle / Auto-remove. The playing entry (▶) and
+  the next one (›) are marked in the queue; Automix messages (skipped files, empty queue) are
+  shown. Changes are saved.
+- **Changed:** the queue's "Shuffle" button is now the Automix Shuffle *mode* (random order,
+  each track once per round), as the plan describes, instead of reordering the list once.
+- **Added:** LOCK and DUCK in the top bar. LOCK: click to lock; when locked, click to type the
+  PIN, or hold for 2 seconds (if allowed). Music controls then refuse with "Locked — unlock …".
+  DUCK: click (or press D) to lower the music; click again to bring it back.
+- **Added:** master PLAY / PAUSE / STOP under the crossfader.
+- **Added:** **DAY** view (Ctrl+4) for staff: what is playing (big), what comes next, a
+  progress bar, big START / NEXT / DUCK / LOCK buttons and the volume, with the queue beside it.
+- **Added:** Settings tabs **Automix** (default trigger / fade / style / Loop / Shuffle /
+  Auto-remove, "Start BongPlayer when Windows starts") and **Lock** (set / change / remove the
+  PIN, "volume works while locked", "holding LOCK unlocks"); DUCK depth in the Audio tab.
+- **Fixed:** the clock no longer wraps onto two lines in a narrow window.
+- **Tests:** 7 new screen tests pass (57 in total): cockpit start / skip / stop and every
+  setting; LOCK — a locked deck refuses PLAY with a message, a wrong PIN fails, the right PIN
+  unlocks, holding 2 s unlocks; DUCK button and D key; master transport; DAY view shows now
+  playing / up next; Settings saves Automix defaults and sets a PIN. Looked at in a browser.
+- **Not verified:** "Start with Windows" (needs the installed app); the 12-hour soak test (owner).
+- **Commit:** pending
+
 ### 2026-10-10 07:12 — M5: Automix controller, resume after a crash, LOCK, DUCK (app side)
 - **Added:** Automix plays the queue on its own: the next track is loaded early on the other
   deck; the transition (Smooth, Bass Swap, Cut or Echo-Out) starts when the playing track has
@@ -35,7 +59,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   PIN, unlocks with the right PIN or a hold (when allowed); changing the PIN needs the old one.
   Plus 1 PIN-hash test.
 - **Not verified:** the 12-hour soak test on the bar PC with a real playlist (owner, PLAN M5).
-- **Commit:** pending
+- **Commit:** 4206b5f
 
 ### 2026-10-10 07:04 — M5: Engine — Automix transitions, echo, DUCK
 - **Added:** four Automix transitions, run inside the audio engine so they are exact:

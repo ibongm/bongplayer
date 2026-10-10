@@ -2,8 +2,9 @@
 // level and meter; crossfader.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import type { DeckName } from "../../ipc/types";
-import { status } from "../../state/app";
+import { backend } from "../../ipc/backend";
+import type { DeckName, MasterAction } from "../../ipc/types";
+import { notify, status } from "../../state/app";
 import { useStore } from "../../state/store";
 import { channelDefaults, context2d, cssColor, mixer, onFrame, setChannel, setCrossfader, setMaster } from "../../state/ui";
 import { Fader } from "../controls/Fader";
@@ -140,6 +141,39 @@ function Channel({ deck }: { deck: DeckName }): ReactNode {
   );
 }
 
+function masterTransport(action: MasterAction): void {
+  void backend()
+    .masterTransport(action)
+    .then((r) => {
+      if (!r.ok) notify("error", `${action.toUpperCase()}: ${r.error}`);
+    });
+}
+
+function MasterTransport(): ReactNode {
+  const playing = useStore(status, (s) => (s?.decks[0].playing ?? false) || (s?.decks[1].playing ?? false));
+  const btn = (action: MasterAction, label: string, title: string, active: boolean): ReactNode => (
+    <button
+      type="button"
+      aria-label={`Master ${action}`}
+      title={title}
+      aria-pressed={active}
+      className={`h-7 w-10 rounded text-[13px] font-bold ${active ? "bg-accent text-bg" : "bg-surface-raised hover:bg-accent/30"}`}
+      onClick={() => {
+        masterTransport(action);
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex gap-1" role="group" aria-label="Master transport">
+      {btn("play", "▶", "PLAY: start Automix, or resume the paused deck", playing)}
+      {btn("pause", "❚❚", "PAUSE both decks", false)}
+      {btn("stop", "■", "STOP: stop Automix and both decks", false)}
+    </div>
+  );
+}
+
 export function Mixer(): ReactNode {
   const crossfader = useStore(mixer, (m) => m.crossfader);
   const master = useStore(mixer, (m) => m.master);
@@ -185,6 +219,7 @@ export function Mixer(): ReactNode {
         format={(v) => (Math.abs(v - 0.5) < 0.01 ? "centre" : v < 0.5 ? `towards A ${Math.round((0.5 - v) * 200)} %` : `towards B ${Math.round((v - 0.5) * 200)} %`)}
         onChange={setCrossfader}
       />
+      <MasterTransport />
     </section>
   );
 }

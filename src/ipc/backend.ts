@@ -15,6 +15,7 @@ import {
   isFolderEntry,
   isFolderTracks,
   isImportReport,
+  isLockInfo,
   isNumber,
   isQueueEntry,
   isStatusSnapshot,
@@ -25,6 +26,9 @@ import {
 import type {
   AnalysisReport,
   AppInfo,
+  AutomixConfig,
+  LockInfo,
+  MasterAction,
   CrateEntry,
   CrateInfo,
   CrateKind,
@@ -77,6 +81,22 @@ export interface Backend {
   deckWaveform(trackId: number): Promise<IpcResult<Waveform>>;
   outputDevices(): Promise<IpcResult<OutputDevices>>;
   setPreferredOutput(id: string | null): Promise<IpcResult<null>>;
+  automixStart(): Promise<IpcResult<null>>;
+  automixStop(): Promise<IpcResult<null>>;
+  automixSkip(): Promise<IpcResult<null>>;
+  automixConfig(config: AutomixConfig): Promise<IpcResult<null>>;
+  masterTransport(action: MasterAction): Promise<IpcResult<null>>;
+  lockInfo(): Promise<IpcResult<LockInfo>>;
+  lockEngage(): Promise<IpcResult<null>>;
+  lockRelease(pin: string | null, hold: boolean): Promise<IpcResult<null>>;
+  lockConfigure(
+    volumeAllowed: boolean,
+    holdUnlocks: boolean,
+    currentPin: string | null,
+    newPin: string | null,
+  ): Promise<IpcResult<null>>;
+  duck(on: boolean): Promise<IpcResult<null>>;
+  duckDepth(db: number): Promise<IpcResult<null>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -167,6 +187,18 @@ export const tauriBackend: Backend = {
   },
   outputDevices: () => call("output_devices", {}, isOutputDevices),
   setPreferredOutput: (id) => call("set_preferred_output", { id }, unit),
+  automixStart: () => call("automix_start", {}, unit),
+  automixStop: () => call("automix_stop", {}, unit),
+  automixSkip: () => call("automix_skip", {}, unit),
+  automixConfig: (config) => call("automix_config", { config }, unit),
+  masterTransport: (action) => call("master_transport", { action }, unit),
+  lockInfo: () => call("lock_info", {}, isLockInfo),
+  lockEngage: () => call("lock_engage", {}, unit),
+  lockRelease: (pin, hold) => call("lock_release", { pin, hold }, unit),
+  lockConfigure: (volumeAllowed, holdUnlocks, currentPin, newPin) =>
+    call("lock_configure", { volumeAllowed, holdUnlocks, currentPin, newPin }, unit),
+  duck: (on) => call("duck", { on }, unit),
+  duckDepth: (db) => call("duck_depth", { db }, unit),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),

@@ -6,11 +6,13 @@ import { status } from "../state/app";
 import { useStore } from "../state/store";
 import { settingsOpen, view, type View } from "../state/ui";
 import { openMenu } from "./ContextMenu";
+import { DuckButton, LockButton } from "./LockDuck";
 
 const VIEWS: { id: View; label: string; key: string }[] = [
   { id: "standard", label: "STANDARD", key: "Ctrl+1" },
   { id: "decks", label: "DECKS", key: "Ctrl+2" },
   { id: "library", label: "LIBRARY", key: "Ctrl+3" },
+  { id: "day", label: "DAY", key: "Ctrl+4" },
 ];
 
 export const SHORTCUTS: [string, string][] = [
@@ -20,7 +22,9 @@ export const SHORTCUTS: [string, string][] = [
   ["F4 / F8", "SYNC deck A / B"],
   ["1 … 8", "Hot cue 1–8 on deck A"],
   ["Shift+1 … 8", "Hot cue 1–8 on deck B"],
-  ["Ctrl+1 / 2 / 3", "Standard / Decks / Library view"],
+  ["Ctrl+1 / 2 / 3 / 4", "Standard / Decks / Library / Day view"],
+  ["D", "DUCK on / off"],
+  ["Ctrl+K", "LOCK (when locked: unlock with PIN)"],
   ["Ctrl+F", "Search tracks"],
   ["Ctrl+L", "Music Library"],
   ["Enter / Shift+Enter", "Load selected track to deck A / B"],
@@ -39,7 +43,7 @@ function Clock(): ReactNode {
     };
   }, []);
   return (
-    <span data-tauri-drag-region className="text-[15px] font-semibold tabular-nums" title="Time">
+    <span data-tauri-drag-region className="whitespace-nowrap text-[15px] font-semibold tabular-nums" title="Time">
       {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
     </span>
   );
@@ -56,7 +60,7 @@ function StatusPill(): ReactNode {
       type="button"
       title={`${running ? `Playing on ${device ?? "the default device"} at ${rate} Hz` : "No sound output"}${problem ? ` — last problem: ${problem}` : ""} (click for audio settings)`}
       aria-label={`Audio engine: ${text}`}
-      className={`max-w-56 truncate rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+      className={`max-w-56 min-w-24 shrink-0 truncate rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
         running ? "bg-accent/20 text-text" : "bg-danger text-danger-text"
       }`}
       onClick={() => {
@@ -109,6 +113,8 @@ export function TopBar(): ReactNode {
       >
         ⌨
       </button>
+      <DuckButton />
+      <LockButton />
       <StatusPill />
       <button
         type="button"

@@ -11,6 +11,7 @@ import type {
   FolderEntry,
   FolderTracks,
   ImportReport,
+  LockInfo,
   OutputDevice,
   OutputDevices,
   QueueEntry,
@@ -178,6 +179,23 @@ export function isStatusSnapshot(v: unknown): v is StatusSnapshot {
     v.decks.every(isDeckSnapshot) &&
     isNumber(v.sampleRate) &&
     isRecord(v.output) &&
-    isPair(v.master)
+    isPair(v.master) &&
+    isNumber(v.crossfader) &&
+    isRecord(v.automix) &&
+    isBool(v.automix.on) &&
+    isRecord(v.automix.config) &&
+    isBool(v.locked) &&
+    isBool(v.duckOn) &&
+    isNumber(v.duckDb)
+  );
+}
+
+export function isLockInfo(v: unknown): v is LockInfo {
+  return (
+    isRecord(v) &&
+    isBool(v.locked) &&
+    isBool(v.volumeAllowed) &&
+    isBool(v.holdUnlocks) &&
+    isBool(v.hasPin)
   );
 }

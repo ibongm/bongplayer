@@ -10,6 +10,7 @@ import { browser, crates, notices, queue, status } from "../state/app";
 import { emptySelection } from "../state/selection";
 import { explorer } from "../state/explorer";
 import { menuStore } from "../components/ContextMenu";
+import { channelDefaults, mixer, settingsOpen, view } from "../state/ui";
 
 export type Mock = ReturnType<typeof createMockBackend>;
 
@@ -29,6 +30,9 @@ function resetStores(): void {
   status.set(null);
   menuStore.set(null);
   explorer.set({ drives: [], places: [], nodes: {}, error: null });
+  view.set("standard");
+  settingsOpen.set(false);
+  mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
 }
 
 export async function renderApp(options: MockOptions = {}): Promise<{ mock: Mock; view: RenderResult }> {

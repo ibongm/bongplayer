@@ -163,13 +163,47 @@ export interface OutputSnapshot {
   problem: string | null;
 }
 
+export type TransitionStyle = "smooth" | "bassSwap" | "cut" | "echoOut";
+
+export interface AutomixConfig {
+  triggerSeconds: number;
+  crossfadeSeconds: number;
+  style: TransitionStyle;
+  loopQueue: boolean;
+  shuffle: boolean;
+  autoRemove: boolean;
+}
+
+export interface AutomixSnapshot {
+  on: boolean;
+  currentUid: number | null;
+  nextUid: number | null;
+  transitioning: boolean;
+  config: AutomixConfig;
+  message: string | null;
+}
+
 export interface StatusSnapshot {
   decks: [DeckSnapshot, DeckSnapshot];
   sampleRate: number;
   output: OutputSnapshot;
   /** Master output [peak, rms], linear. */
   master: [number, number];
+  crossfader: number;
+  automix: AutomixSnapshot;
+  locked: boolean;
+  duckOn: boolean;
+  duckDb: number;
 }
+
+export interface LockInfo {
+  locked: boolean;
+  volumeAllowed: boolean;
+  holdUnlocks: boolean;
+  hasPin: boolean;
+}
+
+export type MasterAction = "play" | "pause" | "stop";
 
 export interface OutputDevice {
   id: string;

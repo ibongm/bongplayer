@@ -1,9 +1,16 @@
 // ⚙ Settings window. Tabs are added as their features arrive; M4 brings the Audio tab.
 
+import { isTauri } from "@tauri-apps/api/core";
+import {
+  disable as autostartOff,
+  enable as autostartOn,
+  isEnabled as autostartIsOn,
+} from "@tauri-apps/plugin-autostart";
 import { useEffect, useState, type ReactNode } from "react";
 import { backend } from "../../ipc/backend";
-import type { OutputDevices } from "../../ipc/types";
-import { notify } from "../../state/app";
+import type { AutomixConfig, LockInfo, OutputDevices } from "../../ipc/types";
+import { notify, status } from "../../state/app";
+import { setAutomixConfig, STYLES } from "../AutomixCockpit";
 import { useStore } from "../../state/store";
 import { send, settingsOpen } from "../../state/ui";
 
@@ -92,6 +99,7 @@ function AudioTab(): ReactNode {
           </p>
         )}
       </section>
+      <DuckDepth />
       <section>
         <h3 className="mb-1 text-[13px] font-semibold">Limiter ceiling</h3>
         <p className="mb-2 text-[12px] text-muted">The master output never goes above this level.</p>
@@ -114,10 +122,258 @@ function AudioTab(): ReactNode {
   );
 }
 
-// More sections join this list as their features arrive (M5–M11).
+function DuckDepth(): ReactNode {
+  const [depth, setDepth] = useState(12);
+  useEffect(() => {
+    void backend()
+      .settingGet("duck.depth_db")
+      .then((r) => {
+        if (r.ok && r.value !== null && Number.isFinite(Number(r.value))) setDepth(Number(r.value));
+      });
+  }, []);
+  return (
+    <section>
+      <h3 className="mb-1 text-[13px] font-semibold">DUCK depth</h3>
+      <p className="mb-2 text-[12px] text-muted">How much DUCK lowers the music for an announcement.</p>
+      <label className="flex items-center gap-2 text-[13px]">
+        <input
+          type="range"
+          min={3}
+          max={30}
+          step={1}
+          value={depth}
+          aria-label="DUCK depth"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setDepth(v);
+            void backend().duckDepth(v);
+          }}
+        />
+        <span className="tabular-nums">−{depth} dB</span>
+      </label>
+    </section>
+  );
+}
+
+function AutomixTab(): ReactNode {
+  const cfgJson = useStore(status, (st) => (st ? JSON.stringify(st.automix.config) : ""));
+  const [autostart, setAutostart] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isTauri()) return;
+    autostartIsOn().then(setAutostart, () => {
+      setAutostart(null);
+    });
+  }, []);
+  if (cfgJson === "") return <p className="text-[13px] text-muted">Waiting for the audio engine…</p>;
+  const cfg = JSON.parse(cfgJson) as AutomixConfig;
+  const row = (label: string, control: ReactNode, help: string): ReactNode => (
+    <label className="grid grid-cols-[160px_1fr] items-center gap-2 text-[13px]" title={help}>
+      <span>{label}</span>
+      {control}
+    </label>
+  );
+  const num = (key: "triggerSeconds" | "crossfadeSeconds", min: number, max: number): ReactNode => (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={0.5}
+      value={cfg[key]}
+      aria-label={key === "triggerSeconds" ? "Trigger seconds" : "Crossfade seconds"}
+      className="w-24 rounded border border-border bg-bg px-2 py-1"
+      onChange={(e) => {
+        const v = Number(e.target.value);
+        if (Number.isFinite(v)) setAutomixConfig({ [key]: Math.max(min, Math.min(max, v)) });
+      }}
+    />
+  );
+  const check = (key: "loopQueue" | "shuffle" | "autoRemove", label: string): ReactNode => (
+    <input
+      type="checkbox"
+      checked={cfg[key]}
+      aria-label={label}
+      onChange={(e) => {
+        setAutomixConfig({ [key]: e.target.checked });
+      }}
+    />
+  );
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[12px] text-muted">These settings are saved and used every time Automix runs.</p>
+      {row("Trigger (seconds left)", num("triggerSeconds", 1, 60), "Start the transition when the playing track has this many seconds left")}
+      {row("Crossfade (seconds)", num("crossfadeSeconds", 0, 30), "Length of the transition")}
+      {row(
+        "Transition",
+        <select
+          aria-label="Default transition"
+          value={cfg.style}
+          className="w-56 rounded border border-border bg-bg px-2 py-1"
+          onChange={(e) => {
+            const style = STYLES.find((x) => x.id === e.target.value)?.id;
+            if (style) setAutomixConfig({ style });
+          }}
+        >
+          {STYLES.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.label} — {x.help}
+            </option>
+          ))}
+        </select>,
+        "How one track blends into the next",
+      )}
+      {row("Loop the queue", check("loopQueue", "Loop the queue"), "At the end of the queue, start again from the top")}
+      {row("Shuffle", check("shuffle", "Shuffle"), "Random order, each track once per round")}
+      {row("Auto-remove played", check("autoRemove", "Auto-remove played"), "Remove tracks from the queue once played")}
+      <section className="border-t border-border pt-3">
+        <h3 className="mb-1 text-[13px] font-semibold">Start with Windows</h3>
+        {isTauri() ? (
+          <label className="flex items-center gap-2 text-[13px]">
+            <input
+              type="checkbox"
+              checked={autostart === true}
+              disabled={autostart === null}
+              aria-label="Start BongPlayer when Windows starts"
+              onChange={(e) => {
+                const on = e.target.checked;
+                (on ? autostartOn() : autostartOff()).then(
+                  () => {
+                    setAutostart(on);
+                  },
+                  (err: unknown) => {
+                    notify("error", "Start with Windows: " + String(err));
+                  },
+                );
+              }}
+            />
+            Start BongPlayer when Windows starts (Automix then continues where it stopped)
+          </label>
+        ) : (
+          <p className="text-[12px] text-muted">Available in the desktop app.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function LockTab(): ReactNode {
+  const [info, setInfo] = useState<LockInfo | null>(null);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const reload = (): void => {
+    void backend()
+      .lockInfo()
+      .then((r) => {
+        if (r.ok) setInfo(r.value);
+      });
+  };
+  useEffect(reload, []);
+  if (!info) return <p className="text-[13px] text-muted">Loading…</p>;
+  const save = (volumeAllowed: boolean, holdUnlocks: boolean, newPin: string | null): void => {
+    void backend()
+      .lockConfigure(volumeAllowed, holdUnlocks, current === "" ? null : current, newPin)
+      .then((r) => {
+        if (!r.ok) notify("error", "Lock settings: " + r.error);
+        else {
+          notify("info", "Lock settings saved");
+          setCurrent("");
+          setNext("");
+        }
+        reload();
+      });
+  };
+  return (
+    <div className="flex flex-col gap-3 text-[13px]">
+      <p className="text-[12px] text-muted">
+        LOCK stops play / skip / load / crossfader / queue changes so staff cannot change the music by accident.
+      </p>
+      {info.locked && (
+        <p role="alert" className="text-danger">
+          Unlock first to change these settings.
+        </p>
+      )}
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={info.volumeAllowed}
+          disabled={info.locked}
+          onChange={(e) => {
+            save(e.target.checked, info.holdUnlocks, null);
+          }}
+        />
+        Volume and DUCK still work while locked
+      </label>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={info.holdUnlocks}
+          disabled={info.locked}
+          onChange={(e) => {
+            save(info.volumeAllowed, e.target.checked, null);
+          }}
+        />
+        Holding the LOCK button for 2 seconds unlocks (without the PIN)
+      </label>
+      <section className="flex flex-col gap-2 border-t border-border pt-3">
+        <h3 className="font-semibold">PIN {info.hasPin ? "(set)" : "(none)"}</h3>
+        {info.hasPin && (
+          <input
+            type="password"
+            inputMode="numeric"
+            placeholder="Current PIN"
+            aria-label="Current PIN"
+            value={current}
+            onChange={(e) => {
+              setCurrent(e.target.value);
+            }}
+            className="w-40 rounded border border-border bg-bg px-2 py-1"
+          />
+        )}
+        <input
+          type="password"
+          inputMode="numeric"
+          placeholder="New PIN (4+ digits)"
+          aria-label="New PIN"
+          value={next}
+          onChange={(e) => {
+            setNext(e.target.value);
+          }}
+          className="w-40 rounded border border-border bg-bg px-2 py-1"
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={info.locked || next === ""}
+            className="rounded bg-accent px-3 py-1 font-semibold text-bg disabled:opacity-40"
+            onClick={() => {
+              save(info.volumeAllowed, info.holdUnlocks, next);
+            }}
+          >
+            {info.hasPin ? "Change PIN" : "Set PIN"}
+          </button>
+          {info.hasPin && (
+            <button
+              type="button"
+              disabled={info.locked}
+              className="rounded bg-surface-raised px-3 py-1 disabled:opacity-40"
+              onClick={() => {
+                save(info.volumeAllowed, info.holdUnlocks, "");
+              }}
+            >
+              Remove PIN
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// More sections join this list as their features arrive (M6–M11).
 type TabId = string;
 const TABS: { id: TabId; label: string; panel: () => ReactNode }[] = [
   { id: "audio", label: "Audio", panel: () => <AudioTab /> },
+  { id: "automix", label: "Automix", panel: () => <AutomixTab /> },
+  { id: "lock", label: "Lock", panel: () => <LockTab /> },
 ];
 
 export function SettingsDialog(): ReactNode {

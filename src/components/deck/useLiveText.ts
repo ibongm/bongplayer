@@ -1,27 +1,23 @@
-// Writes per-frame values (time, remaining) straight into DOM nodes with requestAnimationFrame,
-// so the 60 Hz status never re-renders React components.
+// Writes per-frame values (time, remaining, progress) straight into DOM nodes with
+// requestAnimationFrame, so the 60 Hz status never re-renders React components.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { StatusSnapshot } from "../../ipc/types";
 import { status } from "../../state/app";
 
-export function useLiveText<E extends HTMLElement>(
-  format: (s: StatusSnapshot | null) => string,
+/** Calls `apply(element, status)` every animation frame. */
+export function useLive<E extends HTMLElement>(
+  apply: (el: E, s: StatusSnapshot | null) => void,
 ): React.RefObject<E | null> {
   const ref = useRef<E>(null);
-  const fmt = useRef(format);
+  const fn = useRef(apply);
   useLayoutEffect(() => {
-    fmt.current = format;
+    fn.current = apply;
   });
   useEffect(() => {
     let raf = 0;
-    let last = "";
     const tick = (): void => {
-      const text = fmt.current(status.get());
-      if (text !== last && ref.current) {
-        ref.current.textContent = text;
-        last = text;
-      }
+      if (ref.current) fn.current(ref.current, status.get());
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -30,4 +26,14 @@ export function useLiveText<E extends HTMLElement>(
     };
   }, []);
   return ref;
+}
+
+/** Keeps an element's text equal to `format(status)`. */
+export function useLiveText<E extends HTMLElement>(
+  format: (s: StatusSnapshot | null) => string,
+): React.RefObject<E | null> {
+  return useLive<E>((el, s) => {
+    const text = format(s);
+    if (el.textContent !== text) el.textContent = text;
+  });
 }

@@ -8,7 +8,7 @@ import { createStore } from "./store";
 
 // ----- views -----
 
-export type View = "standard" | "decks" | "library";
+export type View = "standard" | "decks" | "library" | "day";
 export const view = createStore<View>("standard");
 
 export const settingsOpen = createStore(false);

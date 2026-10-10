@@ -4,15 +4,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { startPointerDrag } from "../dnd/drag";
 import { backend } from "../ipc/backend";
-import { loadToDeck, queue, refreshQueue, setQueue } from "../state/app";
+import { loadToDeck, queue, refreshQueue, setQueue, status } from "../state/app";
 import { clickRow, emptySelection, moveFocus, selectAll, selectedInOrder, type Selection } from "../state/selection";
 import { useStore } from "../state/store";
 import { openMenu } from "./ContextMenu";
+import { AutomixCockpit } from "./AutomixCockpit";
 import { confirmAction } from "./Dialog";
 import { formatTime } from "./TrackTable";
 
 export function AutomixPanel(): ReactNode {
   const entries = useStore(queue, (q) => q);
+  const currentUid = useStore(status, (s) => s?.automix.currentUid ?? null);
+  const nextUid = useStore(status, (s) => s?.automix.nextUid ?? null);
   const [sel, setSelState] = useState<Selection>(emptySelection);
   // Menus and drags read the latest selection, not the one from the last render.
   const selRef = useRef(sel);
@@ -89,24 +92,11 @@ export function AutomixPanel(): ReactNode {
     <section aria-label="Automix" className="flex min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
         <h2 className="flex-1 text-[12px] font-semibold uppercase tracking-wide">Automix</h2>
-        <button
-          type="button"
-          className="rounded px-2 py-0.5 text-[12px] hover:bg-surface-raised"
-          title="Shuffle the queue"
-          onClick={() =>
-            void backend()
-              .queueShuffle()
-              .then((r) => {
-                setQueue(r, "Shuffle");
-              })
-          }
-        >
-          Shuffle
-        </button>
         <button type="button" aria-label="Clear Automix queue" className="rounded px-2 py-0.5 text-[12px] hover:bg-surface-raised" title="Remove every track from the queue" onClick={() => void clear()}>
           Clear
         </button>
       </div>
+      <AutomixCockpit />
 
       <ol
         aria-label="Automix queue"
@@ -150,7 +140,7 @@ export function AutomixPanel(): ReactNode {
               data-uid={e.uid}
               aria-selected={selected}
               className={`flex cursor-default items-center gap-2 border-t-2 border-transparent px-2 py-1 text-[13px] data-[drop-active=true]:border-accent ${
-                selected ? "bg-accent/25" : i % 2 === 1 ? "bg-surface/40" : ""
+                selected ? "bg-accent/25" : e.uid === currentUid ? "bg-accent/15 font-semibold" : e.uid === nextUid ? "bg-surface-raised/60" : i % 2 === 1 ? "bg-surface/40" : ""
               }`}
               onPointerDown={(ev) => {
                 if (ev.button !== 0) return;
@@ -176,7 +166,9 @@ export function AutomixPanel(): ReactNode {
                 menu(ev.clientX, ev.clientY, e.uid);
               }}
             >
-              <span className="w-6 text-right text-[11px] text-muted tabular-nums">{i + 1}</span>
+              <span className="w-6 text-right text-[11px] text-muted tabular-nums">
+                {e.uid === currentUid ? "▶" : e.uid === nextUid ? "›" : i + 1}
+              </span>
               <span className="min-w-0 flex-1 truncate">
                 {e.track.artist ? `${e.track.artist} – ` : ""}
                 {e.track.title}

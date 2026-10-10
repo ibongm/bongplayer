@@ -1,6 +1,8 @@
 import { Suspense, use, useEffect, useState, type ReactNode } from "react";
 import { ContextMenuHost } from "./components/ContextMenu";
+import { DayView } from "./components/DayView";
 import { DialogHost } from "./components/Dialog";
+import { toggleDuck, unlockWithPin } from "./components/LockDuck";
 import { Dock } from "./components/Dock";
 import { Deck } from "./components/deck/Deck";
 import { DeckStrip } from "./components/deck/DeckStrip";
@@ -84,9 +86,20 @@ function useGlobalShortcuts(): void {
         void openSource({ kind: "library" });
         return;
       }
-      if (ctrl && (e.key === "1" || e.key === "2" || e.key === "3")) {
+      if (ctrl && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
-        view.set(e.key === "1" ? "standard" : e.key === "2" ? "decks" : "library");
+        view.set(e.key === "1" ? "standard" : e.key === "2" ? "decks" : e.key === "3" ? "library" : "day");
+        return;
+      }
+      if (ctrl && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        if (status.get()?.locked) void unlockWithPin();
+        else void backend().lockEngage();
+        return;
+      }
+      if ((e.key === "d" || e.key === "D") && !ctrl && !e.altKey && !isTyping(e.target)) {
+        e.preventDefault();
+        if (!e.repeat) toggleDuck();
         return;
       }
       if (ctrl && e.key === ",") {
@@ -121,6 +134,7 @@ function useGlobalShortcuts(): void {
 
 function MainArea(): ReactNode {
   const current = useStore(view, (v) => v);
+  if (current === "day") return <DayView />;
   if (current === "library") {
     return (
       <>

@@ -4,6 +4,7 @@
 
 import type { Backend } from "./backend";
 import type {
+  AutomixConfig,
   CrateEntry,
   CrateInfo,
   CrateKind,
@@ -206,6 +207,20 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
   }
 
   const settings = new Map<string, string>();
+  let automixOn = false;
+  let automixConfig: AutomixConfig = {
+    triggerSeconds: 8,
+    crossfadeSeconds: 6,
+    style: "smooth",
+    loopQueue: true,
+    shuffle: false,
+    autoRemove: false,
+  };
+  let currentUid: number | null = null;
+  let locked = false;
+  let lockOpts = { volumeAllowed: true, holdUnlocks: true, pin: null as string | null };
+  let duckOn = false;
+  const lockedError = <T>(): IpcResult<T> => fail("Locked — unlock with the PIN or by holding LOCK");
 
   // ----- crates -----
   interface MockCrate {
@@ -319,6 +334,8 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     return ok(row);
   }
   function command(c: UiCommand): IpcResult<null> {
+    const volume = c.type === "fader" || c.type === "master";
+    if (locked && !(volume && lockOpts.volumeAllowed)) return lockedError();
     if (c.type === "crossfader" || c.type === "master" || c.type === "limiterCeiling") {
       return ok(null);
     }
@@ -443,6 +460,18 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         sampleRate: 48_000,
         output: { running: false, device: null, reopens: 0, problem: "browser preview: no audio" },
         master: decks.A.playing || decks.B.playing ? [0.6, 0.4] : [0, 0],
+        crossfader: 0.5,
+        automix: {
+          on: automixOn,
+          currentUid,
+          nextUid: queue.find((q) => q.uid !== currentUid)?.uid ?? null,
+          transitioning: false,
+          config: { ...automixConfig },
+          message: automixOn && queue.length === 0 ? "queue is empty: add tracks to Automix" : null,
+        },
+        locked,
+        duckOn,
+        duckDb: duckOn ? -12 : 0,
       };
       return resolve(ok(snap));
     },
@@ -659,6 +688,108 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       calls.push(["setPreferredOutput", id]);
       if (id === null) settings.delete("audio.preferred_output");
       else settings.set("audio.preferred_output", id);
+      return resolve(ok(null));
+    },
+    automixStart: () => {
+      calls.push(["automixStart", null]);
+      if (locked) return resolve(lockedError());
+      automixOn = true;
+      const first = queue[0];
+      if (first && currentUid === null) {
+        currentUid = first.uid;
+        load("A", first.trackId);
+        decks.A.playing = true;
+        decks.A.startedAt = now();
+      }
+      return resolve(ok(null));
+    },
+    automixStop: () => {
+      calls.push(["automixStop", null]);
+      if (locked) return resolve(lockedError());
+      automixOn = false;
+      return resolve(ok(null));
+    },
+    automixSkip: () => {
+      calls.push(["automixSkip", null]);
+      if (locked) return resolve(lockedError());
+      if (!automixOn) return resolve(fail("Automix is off"));
+      const i = queue.findIndex((q) => q.uid === currentUid);
+      const next = queue[i + 1];
+      if (!next) return resolve(fail("there is no next track in the queue"));
+      currentUid = next.uid;
+      load("B", next.trackId);
+      decks.B.playing = true;
+      decks.B.startedAt = now();
+      return resolve(ok(null));
+    },
+    automixConfig: (config) => {
+      calls.push(["automixConfig", config]);
+      if (locked) return resolve(lockedError());
+      automixConfig = { ...config };
+      return resolve(ok(null));
+    },
+    masterTransport: (action) => {
+      calls.push(["masterTransport", action]);
+      if (locked) return resolve(lockedError());
+      if (action === "stop") automixOn = false;
+      if (action !== "play") {
+        decks.A.playing = false;
+        decks.B.playing = false;
+      }
+      return resolve(ok(null));
+    },
+    lockInfo: () =>
+      resolve(
+        ok({
+          locked,
+          volumeAllowed: lockOpts.volumeAllowed,
+          holdUnlocks: lockOpts.holdUnlocks,
+          hasPin: lockOpts.pin !== null,
+        }),
+      ),
+    lockEngage: () => {
+      calls.push(["lockEngage", null]);
+      locked = true;
+      return resolve(ok(null));
+    },
+    lockRelease: (pin, hold) => {
+      calls.push(["lockRelease", { pin, hold }]);
+      if (hold && lockOpts.holdUnlocks) {
+        locked = false;
+        return resolve(ok(null));
+      }
+      if (lockOpts.pin === null || pin === lockOpts.pin) {
+        if (hold && !lockOpts.holdUnlocks) {
+          return resolve(fail("Unlocking by holding LOCK is switched off — enter the PIN"));
+        }
+        locked = false;
+        return resolve(ok(null));
+      }
+      return resolve(fail("Wrong PIN"));
+    },
+    lockConfigure: (volumeAllowed, holdUnlocks, currentPin, newPin) => {
+      calls.push(["lockConfigure", { volumeAllowed, holdUnlocks, currentPin, newPin }]);
+      if (locked) return resolve(fail("Unlock first to change the lock settings"));
+      if (newPin !== null) {
+        if (lockOpts.pin !== null && currentPin !== lockOpts.pin) {
+          return resolve(fail("Enter the current PIN to change it"));
+        }
+        if (newPin !== "" && !/^\d{4,}$/.test(newPin)) {
+          return resolve(fail("The PIN must be at least 4 digits"));
+        }
+        lockOpts.pin = newPin === "" ? null : newPin;
+      }
+      lockOpts = { ...lockOpts, volumeAllowed, holdUnlocks };
+      return resolve(ok(null));
+    },
+    duck: (on) => {
+      calls.push(["duck", on]);
+      if (locked && !lockOpts.volumeAllowed) return resolve(lockedError());
+      duckOn = on;
+      return resolve(ok(null));
+    },
+    duckDepth: (db) => {
+      settings.set("duck.depth_db", String(db));
       return resolve(ok(null));
     },
     queueList: () => resolve(ok(queueEntries())),
