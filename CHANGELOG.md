@@ -6,6 +6,19 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:53 — M9: App — sampler pads saved and restored
+- **Added:** the app can put a sound file on a pad, set its volume and choke group, play and
+  stop pads. The pad layout is saved and comes back when the app starts (the sounds load in
+  the background, so the window does not wait). A pad whose file has gone missing shows why;
+  the other pads still load.
+- **Decision:** while LOCK is on, pads cannot be changed (load, clear, volume, choke group),
+  but they can still be played and stopped — a jingle changes no music.
+- **Tests:** 2 new app tests pass: a WAV and a FLAC on pads, played through the engine
+  (rendered offline), volume and choke group saved, restored after a "restart" with one file
+  deleted (that pad shows "file not found"); corrupt files, pad 9 and choke group 9 are
+  refused; LOCK blocks changes but not playing.
+- **Commit:** pending
+
 ### 2026-10-10 11:50 — M9: Sampler in the audio engine
 - **Added:** 8 sampler pads in the engine. A pad holds a short sound (up to 30 s; longer files
   are refused with a clear message) and plays it from the start each time it is pressed.
@@ -22,7 +35,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   untouched); choke groups and pad volume; a 44.1 kHz sound plays at the right pitch and
   length on 48 kHz output; too-long and empty files are refused.
 - **Not verified:** how the ducking sounds on the bar speakers (owner).
-- **Commit:** pending
+- **Commit:** 9befb78
 
 ### 2026-10-10 11:46 — M8: KARAOKE tab and the LRC drawer
 - **Added:** the mixer's top row now has **MIX | KARAOKE** tabs (above the master controls)

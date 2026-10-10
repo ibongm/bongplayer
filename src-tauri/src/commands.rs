@@ -809,6 +809,49 @@ pub async fn lookup_track(
     .await
 }
 
+// ----- sampler -----
+
+#[tauri::command]
+pub async fn sampler_pads(state: St<'_>) -> AppResult<Vec<crate::sampler::PadInfo>> {
+    Ok(state.sampler_pads())
+}
+
+/// Puts a sound file on a pad (decoding it may take a moment).
+#[tauri::command]
+pub async fn sampler_load(
+    state: St<'_>,
+    pad: usize,
+    path: String,
+) -> AppResult<Vec<crate::sampler::PadInfo>> {
+    blocking(&state, move |s| s.sampler_load(pad, &PathBuf::from(path))).await
+}
+
+#[tauri::command]
+pub async fn sampler_clear(state: St<'_>, pad: usize) -> AppResult<Vec<crate::sampler::PadInfo>> {
+    state.sampler_clear(pad)
+}
+
+#[tauri::command]
+pub async fn sampler_configure(
+    state: St<'_>,
+    pad: usize,
+    gain_db: f32,
+    choke: u8,
+) -> AppResult<Vec<crate::sampler::PadInfo>> {
+    state.sampler_configure(pad, gain_db, choke)
+}
+
+#[tauri::command]
+pub async fn sampler_trigger(state: St<'_>, pad: usize) -> AppResult<()> {
+    state.sampler_trigger(pad)
+}
+
+/// Stops one pad, or all pads when `pad` is null.
+#[tauri::command]
+pub async fn sampler_stop(state: St<'_>, pad: Option<usize>) -> AppResult<()> {
+    state.sampler_stop(pad)
+}
+
 // ----- lyrics (karaoke) -----
 
 /// Lyrics of a track: its .lrc file, its tags, or LRCLIB when internet lookup is on.

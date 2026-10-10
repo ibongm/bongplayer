@@ -4,6 +4,7 @@
 pub mod automix;
 pub mod commands;
 pub mod lock;
+pub mod sampler;
 pub mod state;
 pub mod status;
 pub mod waveform;
@@ -63,6 +64,11 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("BongPlayer: could not restore the Automix queue: {e}"),
     }
     start_automix_thread(Arc::clone(&state));
+    // Pad sounds are decoded in the background so the window opens at once.
+    let pads = Arc::clone(&state);
+    let _ = std::thread::Builder::new()
+        .name("bong-sampler-restore".into())
+        .spawn(move || pads.sampler_restore());
     app.manage(state);
     status::start(app.handle().clone());
     Ok(())
@@ -160,6 +166,12 @@ pub fn run() {
             track_cover,
             lookup_track,
             track_lyrics,
+            sampler_pads,
+            sampler_load,
+            sampler_clear,
+            sampler_configure,
+            sampler_trigger,
+            sampler_stop,
             queue_list,
             queue_add,
             queue_add_paths,

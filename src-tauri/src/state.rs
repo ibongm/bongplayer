@@ -261,6 +261,7 @@ pub struct AppState {
     pub waves: Arc<WaveCache>,
     pub automix: Mutex<Automix>,
     pub lock: Mutex<LockState>,
+    pub sampler: Mutex<[crate::sampler::PadSlot; engine::sampler::PADS]>,
 }
 
 /// A queue entry with its track, for display.
@@ -293,6 +294,7 @@ impl AppState {
             waves: Arc::new(WaveCache::default()),
             automix: Mutex::new(Automix::default()),
             lock: Mutex::new(LockState::default()),
+            sampler: Mutex::new(Default::default()),
         }
     }
 

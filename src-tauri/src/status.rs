@@ -93,6 +93,10 @@ pub struct StatusSnapshot {
     pub duck_on: bool,
     /// Current DUCK attenuation in dB (0 = none).
     pub duck_db: f32,
+    /// Bit i set = sampler pad i is playing.
+    pub pads_playing: u8,
+    /// Current sampler ducking of the music in dB (0 = none).
+    pub sampler_duck_db: f32,
 }
 
 pub fn snapshot(state: &AppState) -> StatusSnapshot {
@@ -221,6 +225,8 @@ pub fn snapshot(state: &AppState) -> StatusSnapshot {
         locked: lock(&state.lock).locked,
         duck_on: lock(&state.automix).duck_on,
         duck_db: state.status.duck_db(),
+        pads_playing: state.status.pads_playing(),
+        sampler_duck_db: state.status.sampler_duck_db(),
     }
 }
 
