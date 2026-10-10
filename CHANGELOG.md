@@ -6,6 +6,25 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 06:46 — M4: Engine — loops, CUE / CUP, KEY shift, filter, level meters
+- **Added:** loops: auto-loop of a number of beats, loop IN / OUT, halve / double, exit and
+  re-enter. The jump back is sample-accurate (no click from overshooting), also with key lock.
+- **Added:** CUE and CUP like a Pioneer deck: stopped → CUE sets the cue point and plays while
+  held, release returns; playing → CUE jumps back and stops; CUP jumps to the cue and plays.
+- **Added:** KEY shift: transpose −12 … +12 semitones, with or without key lock.
+- **Added:** a filter knob per channel: left = low-pass (cuts treble), right = high-pass (cuts
+  bass), centre = off.
+- **Added:** level meters (peak and RMS) for deck A, deck B and the master output.
+- **Fixed (found by the new tests):** a loop's OUT point could be overshot by one sample block
+  before jumping back; with key lock on, the shown position could briefly fall outside the loop.
+- **Tests:** 7 new engine tests pass — meters equal the RMS / peak of the rendered audio
+  exactly; auto-loop repeats sample-for-sample and continues after exit; IN/OUT/halve/double;
+  loops with key lock; CUE / CUP behaviour; KEY shift +12 = one octave up, −2 with key lock at
+  +8 % = two semitones down (within 5 cents); filter centre untouched, fully closed cuts by
+  more than 60 dB, the passband stays within 3.5 dB.
+- **Not verified:** how loops, CUE and the filter sound and feel (owner, with the deck screen).
+- **Commit:** pending
+
 ### 2026-10-10 06:41 — M3: Library screens — explorer, track table, menus, drag & drop, crates, Automix queue
 - **Added:** the library screen under the two decks, in three resizable columns:
   - **Explorer:** Music Library, Music / Downloads / Home, every drive (USB sticks and network
@@ -47,7 +66,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Not verified (owner, on the bar PC):** drag & drop with the real mouse inside the app and
   from Windows Explorer; right-click menus; import dialogs; Show in Explorer; a real 50,000-file
   library.
-- **Commit:** pending
+- **Commit:** d415af5
 
 ### 2026-10-10 06:41 — M3: App connects the window to the engine and the library
 - **Added:** when the app starts it opens the library database in the app's data folder,

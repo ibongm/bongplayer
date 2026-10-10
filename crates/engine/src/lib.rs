@@ -8,6 +8,7 @@ pub mod deck;
 pub mod decode;
 pub mod engine;
 pub mod eq;
+pub mod filter;
 pub mod limiter;
 pub mod mixer;
 mod mp4_edit;

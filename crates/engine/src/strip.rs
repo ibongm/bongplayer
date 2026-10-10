@@ -1,6 +1,7 @@
-//! Mixer channel strip: trim → 3-band EQ → channel fader.
+//! Mixer channel strip: trim → 3-band EQ → filter → channel fader.
 
 use crate::eq::{db_to_gain, Band, Smoothed, ThreeBandEq};
+use crate::filter::DjFilter;
 
 /// Most trim boost allowed.
 pub const MAX_TRIM_DB: f32 = 12.0;
@@ -9,6 +10,7 @@ pub const MAX_TRIM_DB: f32 = 12.0;
 pub struct ChannelStrip {
     trim: Smoothed,
     pub eq: ThreeBandEq,
+    pub filter: DjFilter,
     fader: Smoothed,
 }
 
@@ -17,6 +19,7 @@ impl ChannelStrip {
         Self {
             trim: Smoothed::new(1.0, sample_rate),
             eq: ThreeBandEq::new(sample_rate),
+            filter: DjFilter::new(sample_rate),
             fader: Smoothed::new(1.0, sample_rate),
         }
     }
@@ -49,11 +52,17 @@ impl ChannelStrip {
         self.eq.set_kill(band, kill);
     }
 
+    /// Filter knob −1 (low-pass) … 0 (off) … +1 (high-pass).
+    pub fn set_filter(&mut self, knob: f32) {
+        self.filter.set(knob);
+    }
+
     /// Jumps all parameters to their targets (no glide).
     pub fn snap(&mut self) {
         self.trim.snap();
         self.fader.snap();
         self.eq.snap();
+        self.filter.snap();
     }
 
     /// Processes interleaved stereo in place. Realtime-safe.
@@ -64,6 +73,7 @@ impl ChannelStrip {
             frame[1] *= t;
         }
         self.eq.process(buf);
+        self.filter.process(buf);
         for frame in buf.as_chunks_mut::<2>().0 {
             let f = self.fader.step();
             frame[0] *= f;

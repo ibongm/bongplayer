@@ -107,6 +107,36 @@ pub enum Command {
         deck: DeckId,
         position: f32,
     },
+    /// −1 (low-pass) … 0 (off) … +1 (high-pass).
+    SetFilter {
+        deck: DeckId,
+        value: f32,
+    },
+    CuePress(DeckId),
+    CueRelease(DeckId),
+    CuePlay(DeckId),
+    SetMainCueAt {
+        deck: DeckId,
+        frame: f64,
+    },
+    /// Semitones, −12 … +12.
+    SetKeyShift {
+        deck: DeckId,
+        semitones: f64,
+    },
+    LoopIn(DeckId),
+    LoopOut(DeckId),
+    /// Loop of this many track frames from the current position.
+    AutoLoop {
+        deck: DeckId,
+        frames: f64,
+    },
+    LoopResize {
+        deck: DeckId,
+        factor: f64,
+    },
+    LoopExit(DeckId),
+    LoopReenter(DeckId),
     SetCrossfader(f32),
     SetMasterDb(f32),
     SetLimiterCeilingDb(f32),
@@ -125,6 +155,11 @@ pub struct DeckStatus {
     pitch_range_bits: AtomicU64,
     key_lock: AtomicBool,
     scratching: AtomicBool,
+    main_cue_bits: AtomicU64,
+    key_shift_bits: AtomicU64,
+    loop_in_bits: AtomicU64,
+    loop_out_bits: AtomicU64,
+    loop_active: AtomicBool,
 }
 
 impl DeckStatus {
@@ -157,6 +192,24 @@ impl DeckStatus {
     pub fn is_scratching(&self) -> bool {
         self.scratching.load(Ordering::Relaxed)
     }
+    pub fn main_cue(&self) -> f64 {
+        f64::from_bits(self.main_cue_bits.load(Ordering::Relaxed))
+    }
+    pub fn key_shift(&self) -> f64 {
+        f64::from_bits(self.key_shift_bits.load(Ordering::Relaxed))
+    }
+    /// (IN, OUT, active) in track frames.
+    pub fn loop_state(&self) -> (Option<f64>, Option<f64>, bool) {
+        let get = |a: &AtomicU64| {
+            let v = f64::from_bits(a.load(Ordering::Relaxed));
+            (!v.is_nan()).then_some(v)
+        };
+        (
+            get(&self.loop_in_bits),
+            get(&self.loop_out_bits),
+            self.loop_active.load(Ordering::Relaxed),
+        )
+    }
     pub fn hot_cue(&self, slot: usize) -> Option<f64> {
         let v = f64::from_bits(self.cues.get(slot)?.load(Ordering::Relaxed));
         (!v.is_nan()).then_some(v)
@@ -177,6 +230,16 @@ impl DeckStatus {
         self.key_lock.store(deck.key_lock(), Ordering::Relaxed);
         self.scratching
             .store(deck.is_scratching(), Ordering::Relaxed);
+        self.main_cue_bits
+            .store(deck.main_cue().to_bits(), Ordering::Relaxed);
+        self.key_shift_bits
+            .store(deck.key_shift().to_bits(), Ordering::Relaxed);
+        let (li, lo, la) = deck.loop_state();
+        self.loop_in_bits
+            .store(li.unwrap_or(f64::NAN).to_bits(), Ordering::Relaxed);
+        self.loop_out_bits
+            .store(lo.unwrap_or(f64::NAN).to_bits(), Ordering::Relaxed);
+        self.loop_active.store(la, Ordering::Relaxed);
         for (slot, c) in self.cues.iter().enumerate() {
             c.store(
                 deck.hot_cue(slot).unwrap_or(f64::NAN).to_bits(),
@@ -186,11 +249,56 @@ impl DeckStatus {
     }
 }
 
+/// Level of one signal over the last audio callback (linear, 1.0 = full scale).
+#[derive(Debug, Default)]
+pub struct Meter {
+    peak_bits: AtomicU32,
+    rms_bits: AtomicU32,
+}
+
+impl Meter {
+    pub fn peak(&self) -> f32 {
+        f32::from_bits(self.peak_bits.load(Ordering::Relaxed))
+    }
+    pub fn rms(&self) -> f32 {
+        f32::from_bits(self.rms_bits.load(Ordering::Relaxed))
+    }
+    fn store(&self, acc: &MeterAcc) {
+        let rms = if acc.count == 0 {
+            0.0
+        } else {
+            (acc.sum_sq / acc.count as f64).sqrt() as f32
+        };
+        self.peak_bits.store(acc.peak.to_bits(), Ordering::Relaxed);
+        self.rms_bits.store(rms.to_bits(), Ordering::Relaxed);
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct MeterAcc {
+    peak: f32,
+    sum_sq: f64,
+    count: usize,
+}
+
+impl MeterAcc {
+    #[inline]
+    fn add(&mut self, samples: &[f32]) {
+        for &s in samples {
+            self.peak = self.peak.max(s.abs());
+            self.sum_sq += f64::from(s) * f64::from(s);
+        }
+        self.count += samples.len();
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct EngineStatus {
     decks: [DeckStatus; 2],
     sample_rate: AtomicU32,
     frames_rendered: AtomicU64,
+    /// Deck A (after its channel strip), deck B, master output.
+    meters: [Meter; 3],
 }
 
 impl EngineStatus {
@@ -200,6 +308,10 @@ impl EngineStatus {
     /// Output sample rate the engine currently runs at.
     pub fn sample_rate(&self) -> u32 {
         self.sample_rate.load(Ordering::Relaxed)
+    }
+    /// Level of deck A / deck B after their channel strips (index 0 / 1) or the master (2).
+    pub fn meter(&self, index: usize) -> Option<&Meter> {
+        self.meters.get(index)
     }
     /// Total output frames produced so far (also used by the output watchdog).
     pub fn frames_rendered(&self) -> u64 {
@@ -211,6 +323,7 @@ impl EngineStatus {
 #[derive(Debug, Clone, Copy)]
 struct MixerSettings {
     trim_db: [f32; 2],
+    filter: [f32; 2],
     eq_db: [[f32; 3]; 2],
     kill: [[bool; 3]; 2],
     fader: [f32; 2],
@@ -223,6 +336,7 @@ impl Default for MixerSettings {
     fn default() -> Self {
         Self {
             trim_db: [0.0; 2],
+            filter: [0.0; 2],
             eq_db: [[0.0; 3]; 2],
             kill: [[false; 3]; 2],
             fader: [1.0; 2],
@@ -239,6 +353,7 @@ impl MixerSettings {
             let s = &mut m.strips[d];
             s.set_trim_db(self.trim_db[d]);
             s.set_fader(self.fader[d]);
+            s.set_filter(self.filter[d]);
             for band in Band::ALL {
                 s.set_eq_gain_db(band, self.eq_db[d][band as usize]);
                 s.set_kill(band, self.kill[d][band as usize]);
@@ -398,6 +513,7 @@ impl Engine {
     /// no allocation, locks, I/O or logging.
     pub fn process(&mut self, out: &mut [f32]) {
         self.apply_commands();
+        let mut acc = [MeterAcc::default(); 3];
         for block in out.chunks_mut(2 * MAX_BLOCK) {
             let n = block.len() & !1;
             let (a, b) = (&mut self.buf_a[..n], &mut self.buf_b[..n]);
@@ -405,6 +521,12 @@ impl Engine {
             self.decks[1].render(b);
             self.mixer.process(a, b, &mut block[..n]);
             block[n..].fill(0.0);
+            acc[0].add(a);
+            acc[1].add(b);
+            acc[2].add(&block[..n]);
+        }
+        for (m, a) in self.status.meters.iter().zip(&acc) {
+            m.store(a);
         }
         for (deck, s) in self.decks.iter().zip(&self.status.decks) {
             s.publish(deck);
@@ -479,6 +601,27 @@ impl Engine {
                 s.fader[deck as usize] = position;
                 self.mixer.strips[deck as usize].set_fader(position);
             }
+            Command::SetFilter { deck, value } => {
+                s.filter[deck as usize] = value;
+                self.mixer.strips[deck as usize].set_filter(value);
+            }
+            Command::CuePress(deck) => self.decks[deck as usize].cue_press(),
+            Command::CueRelease(deck) => self.decks[deck as usize].cue_release(),
+            Command::CuePlay(deck) => self.decks[deck as usize].cue_play(),
+            Command::SetMainCueAt { deck, frame } => {
+                self.decks[deck as usize].set_main_cue_at(frame);
+            }
+            Command::SetKeyShift { deck, semitones } => {
+                self.decks[deck as usize].set_key_shift(semitones);
+            }
+            Command::LoopIn(deck) => self.decks[deck as usize].loop_set_in(),
+            Command::LoopOut(deck) => self.decks[deck as usize].loop_set_out(),
+            Command::AutoLoop { deck, frames } => self.decks[deck as usize].auto_loop(frames),
+            Command::LoopResize { deck, factor } => {
+                self.decks[deck as usize].loop_resize(factor);
+            }
+            Command::LoopExit(deck) => self.decks[deck as usize].loop_exit(),
+            Command::LoopReenter(deck) => self.decks[deck as usize].loop_reenter(),
             Command::SetCrossfader(p) => {
                 s.crossfader = p;
                 self.mixer.set_crossfader(p);
