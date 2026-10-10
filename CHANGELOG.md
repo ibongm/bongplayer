@@ -6,6 +6,20 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 04:05 — M0: Automatic checks (lint, typecheck, tests)
+- **Added:** automatic checks that run with one command each: code style (`npm run lint`),
+  type checking (`npx tsc --noEmit`), interface tests (`npm run test`) and Rust tests
+  (`cargo test --workspace`), plus Rust formatting and `clippy` warnings-as-errors.
+- **Added:** first tests: the titlebar shows the version from Rust; a failed connection to Rust
+  shows a visible error bar; the window buttons have tooltips naming their shortcuts; only the
+  titlebar (not its buttons) drags the window; Rust's `app_info` returns the right name and version.
+- **Decision:** TypeScript is pinned to 6.0 because the lint tool (typescript-eslint) does not
+  support TypeScript 7 yet. Revisit when it does.
+- **Tests:** 8 interface tests and 2 Rust tests pass; lint, tsc, `cargo fmt --check` and
+  `cargo clippy -D warnings` are clean.
+- **Not verified:** none.
+- **Commit:** pending
+
 ### 2026-10-10 04:00 — M0: App shell with custom titlebar
 - **Added:** BongPlayer's own titlebar: logo, name and version (read from the Rust side), and
   minimise / maximise / close buttons with tooltips showing the Windows shortcuts. The titlebar
@@ -16,7 +30,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   failing silently. In a plain browser (`npm run dev`) the interface uses stand-in answers.
 - **Tests:** `npx tsc --noEmit` and `npm run build` pass (automated UI tests come in the next commit).
 - **Not verified:** window dragging and the three window buttons need the installed app (owner check).
-- **Commit:** pending
+- **Commit:** 1f07944
 
 ### 2026-10-10 03:59 — M0: Project skeleton (Rust + Tauri v2 + React 19)
 - **Added:** the empty application skeleton: a Rust workspace with the Tauri v2 desktop app,
