@@ -19,6 +19,7 @@ import {
   isImportReport,
   isLockInfo,
   isLookupOutcome,
+  isLyricsOrNull,
   isNumber,
   isQueueEntry,
   isString,
@@ -33,6 +34,7 @@ import type {
   AutomixConfig,
   LockInfo,
   LookupOutcome,
+  Lyrics,
   MasterAction,
   CrateEntry,
   CrateInfo,
@@ -115,6 +117,8 @@ export interface Backend {
   /** JPEG bytes of a track's cover; fails with "no cover" when there is none. */
   trackCover(trackId: number, large: boolean): Promise<IpcResult<ArrayBuffer>>;
   lookupTrack(trackId: number): Promise<IpcResult<LookupOutcome>>;
+  /** Lyrics from the .lrc file, the file's tags, or LRCLIB (internet on); null when none. */
+  trackLyrics(trackId: number): Promise<IpcResult<Lyrics | null>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -227,6 +231,7 @@ export const tauriBackend: Backend = {
   queueAddStation: (id, before) => call("queue_add_station", { id, before }, queue),
   trackCover: (trackId, large) => call("track_cover", { trackId, large }, isArrayBuffer),
   lookupTrack: (trackId) => call("lookup_track", { trackId }, isLookupOutcome),
+  trackLyrics: (trackId) => call("track_lyrics", { trackId }, isLyricsOrNull),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),

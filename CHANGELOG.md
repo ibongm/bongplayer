@@ -6,6 +6,22 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:46 — M8: KARAOKE tab and the LRC drawer
+- **Added:** the mixer's top row now has **MIX | KARAOKE** tabs (above the master controls)
+  and an **LRC** button. KARAOKE shows the lyrics of the deck the audience hears (the only
+  playing deck; if both play, the one the crossfader favours). The current line is
+  highlighted and scrolls along as the song plays; click any line to jump the deck there.
+- **Added:** the LRC button (or Ctrl+Y) opens a big lyrics drawer over the lower part of the
+  window, for singers; press it again to close.
+- **Added:** clear messages instead of a spinner: "No lyrics found …", "Instrumental",
+  "A radio station is playing: no lyrics", and "not synced (no highlight)" for plain lyrics.
+- **Changed:** Settings → Internet now also says that lyrics may be asked from LRCLIB.
+- **Tests:** 6 new screen tests pass (70 in total): current-line finder; which deck counts as
+  active; the tab sits above the master controls; the highlight follows the position (one line
+  at a time); clicking a line sends "seek to 15 s"; LRC button and Ctrl+Y open/close the drawer.
+- **Not verified:** that the highlight looks smooth and readable at the bar (owner).
+- **Commit:** pending
+
 ### 2026-10-10 11:46 — M8: Lyrics — LRC reader and where lyrics come from
 - **Added:** a reader for LRC lyric files (timed lines). It understands every common way of
   writing the time ([1:06], [00:02.5], [00:03.25], [00:04.125], [00:05:50]), several times on
@@ -20,7 +36,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   words — real song lyrics are copyrighted and are not stored in the repository.
 - **Not verified:** real `.lrc` files from the owner's collection, and LRCLIB live (owner,
   with the setting on).
-- **Commit:** pending
+- **Commit:** 98bfd9c
 
 ### 2026-10-10 11:38 — M7: Info tab, covers on screen, Settings → Internet
 - **Added:** an **Info** tab beside Automix in the dock (Ctrl+I switches). It shows the

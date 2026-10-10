@@ -33,6 +33,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl+,", "Settings"],
   ["Ctrl+R", "Radio strip"],
   ["Ctrl+I", "Automix / Info tab"],
+  ["Ctrl+Y", "Lyrics drawer (LRC)"],
 ];
 
 function Clock(): ReactNode {

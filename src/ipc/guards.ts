@@ -169,6 +169,21 @@ export function isLookupOutcome(v: unknown): v is import("./types").LookupOutcom
   );
 }
 
+function isLyricLine(v: unknown): v is import("./types").LyricLine {
+  return isRecord(v) && isNumber(v.ms) && isString(v.text);
+}
+
+export function isLyricsOrNull(v: unknown): v is import("./types").Lyrics | null {
+  return (
+    v === null ||
+    (isRecord(v) &&
+      arrayOf(isLyricLine)(v.lines) &&
+      isBool(v.synced) &&
+      (v.source === "file" || v.source === "embedded" || v.source === "lrclib") &&
+      isBool(v.instrumental))
+  );
+}
+
 export function isPreset(v: unknown): v is import("./types").Preset {
   return isRecord(v) && isString(v.name) && isString(v.url);
 }

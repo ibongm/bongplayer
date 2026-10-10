@@ -932,6 +932,17 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       );
       return resolve(ok(png.buffer));
     },
+    trackLyrics: (trackId) => {
+      calls.push(["trackLyrics", trackId]);
+      if (!rows.has(trackId)) return resolve(fail(`track ${trackId} not found`));
+      // Even-numbered tracks have a .lrc file in the stand-in library: a line every 5 s.
+      if (trackId % 2 !== 0) return resolve(ok(null));
+      const lines = ["♪", "First line", "Second line", "Third line", "Fourth line", "Last line"].map((text, i) => ({
+        ms: i * 5000,
+        text,
+      }));
+      return resolve(ok({ lines, synced: true, source: "file", instrumental: false }));
+    },
     lookupTrack: (trackId) => {
       calls.push(["lookupTrack", trackId]);
       if (settings.get("internet.lookup") !== "1") {

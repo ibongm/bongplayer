@@ -389,7 +389,7 @@ function InternetTab(): ReactNode {
               });
             }}
           />
-          Look up missing covers, album, year and genre online
+          Look up missing covers, album, year, genre and lyrics online
         </label>
         <p className="mt-2 text-[12px] text-muted">
           Off by default. Covers are always taken from the file or its folder (folder.jpg) first — that
@@ -400,6 +400,10 @@ function InternetTab(): ReactNode {
           to MusicBrainz and Cover Art Archive, and if they have no clean match, to Apple iTunes Search and
           Deezer. Each track is looked up once, the first time it is loaded on a deck or when you press
           “Look up online” in the Info tab. Only empty fields are filled.
+        </p>
+        <p className="mt-2 text-[12px] text-muted">
+          Lyrics: a .lrc file beside the song or lyrics in its tags are used first. Otherwise, when on, the
+          artist and title go to LRCLIB (lrclib.net) once per track, when KARAOKE or the LRC drawer shows it.
         </p>
       </section>
     </div>

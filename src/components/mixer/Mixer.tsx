@@ -1,7 +1,7 @@
 // Centre mixer: per channel gain, 3-band EQ with kills, filter, meter and fader; master
 // level and meter; crossfader.
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { backend } from "../../ipc/backend";
 import type { DeckName, MasterAction } from "../../ipc/types";
 import { notify, status } from "../../state/app";
@@ -9,6 +9,8 @@ import { useStore } from "../../state/store";
 import { channelDefaults, context2d, cssColor, mixer, onFrame, setChannel, setCrossfader, setMaster } from "../../state/ui";
 import { Fader } from "../controls/Fader";
 import { Knob } from "../controls/Knob";
+import { LyricsView } from "../Lyrics";
+import { lyricsDrawer } from "../../state/lyrics";
 
 const db = (v: number): string => (v <= -24 ? "−∞ dB" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)} dB`);
 
@@ -174,39 +176,88 @@ function MasterTransport(): ReactNode {
   );
 }
 
+function LrcButton(): ReactNode {
+  const open = useStore(lyricsDrawer, (o) => o);
+  return (
+    <button
+      type="button"
+      aria-pressed={open}
+      aria-label="LRC"
+      title="LRC: show / hide the big lyrics drawer (Ctrl+Y)"
+      className={`rounded px-2 py-0.5 ${open ? "bg-accent text-bg" : "bg-surface-raised text-muted hover:text-text"}`}
+      onClick={() => {
+        lyricsDrawer.set(!open);
+      }}
+    >
+      LRC
+    </button>
+  );
+}
+
+type MixerTab = "mix" | "karaoke";
+
 export function Mixer(): ReactNode {
   const crossfader = useStore(mixer, (m) => m.crossfader);
   const master = useStore(mixer, (m) => m.master);
+  const [tab, setTab] = useState<MixerTab>("mix");
+  const tabButton = (id: MixerTab, label: string, title: string): ReactNode => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === id}
+      title={title}
+      className={`rounded px-2 py-0.5 ${tab === id ? "bg-accent/25" : "text-muted hover:text-text"}`}
+      onClick={() => {
+        setTab(id);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          setTab(tab === "mix" ? "karaoke" : "mix");
+          e.preventDefault();
+        }
+      }}
+    >
+      {label}
+    </button>
+  );
   return (
     <section aria-label="Mixer" className="flex shrink-0 flex-col items-center gap-2 rounded-md border border-border bg-surface p-2">
-      <div role="tablist" aria-label="Mixer tabs" className="flex gap-1 text-[11px] font-semibold">
-        <span role="tab" aria-selected="true" className="rounded bg-accent/25 px-2 py-0.5">
-          MIX
-        </span>
-      </div>
-      <div className="flex items-start gap-3">
-        <Channel deck="A" />
-        <div className="flex flex-col items-center gap-1.5 pt-6" role="group" aria-label="Master">
-          <Knob
-            label="MASTER"
-            size={40}
-            bipolar
-            value={master}
-            min={-24}
-            max={6}
-            defaultValue={0}
-            steps={60}
-            format={db}
-            onChange={(v) => {
-              setMaster(v <= -24 ? -120 : v);
-            }}
-          />
-          <div className="flex h-40 gap-1">
-            <Meter source={2} label="Master level" />
-          </div>
+      <div className="flex items-center gap-2 text-[11px] font-semibold">
+        <div role="tablist" aria-label="Mixer tabs" className="flex gap-1">
+          {tabButton("mix", "MIX", "Mixer: gain, EQ, filter, faders (← / → switch tabs)")}
+          {tabButton("karaoke", "KARAOKE", "Lyrics of the playing deck; click a line to jump there (← / → switch tabs)")}
         </div>
-        <Channel deck="B" />
+        <LrcButton />
       </div>
+      {tab === "karaoke" ? (
+        <div className="flex h-[300px] w-[340px] min-h-0 flex-col" role="tabpanel" aria-label="Karaoke">
+          <LyricsView />
+        </div>
+      ) : (
+        <div className="flex items-start gap-3">
+          <Channel deck="A" />
+          <div className="flex flex-col items-center gap-1.5 pt-6" role="group" aria-label="Master">
+            <Knob
+              label="MASTER"
+              size={40}
+              bipolar
+              value={master}
+              min={-24}
+              max={6}
+              defaultValue={0}
+              steps={60}
+              format={db}
+              onChange={(v) => {
+                setMaster(v <= -24 ? -120 : v);
+              }}
+            />
+            <div className="flex h-40 gap-1">
+              <Meter source={2} label="Master level" />
+            </div>
+          </div>
+          <Channel deck="B" />
+        </div>
+      )}
       <Fader
         label="CROSSFADER"
         orientation="horizontal"

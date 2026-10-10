@@ -167,6 +167,22 @@ export interface LookupOutcome {
   source: string | null;
 }
 
+export interface LyricLine {
+  /** Start in milliseconds (0 for unsynced lyrics). */
+  ms: number;
+  text: string;
+}
+
+export type LyricsSource = "file" | "embedded" | "lrclib";
+
+export interface Lyrics {
+  lines: LyricLine[];
+  /** Lines carry times, so the current one can be highlighted. */
+  synced: boolean;
+  source: LyricsSource;
+  instrumental: boolean;
+}
+
 export interface StationRow {
   id: number;
   name: string;

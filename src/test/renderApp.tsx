@@ -11,6 +11,7 @@ import { emptySelection } from "../state/selection";
 import { explorer } from "../state/explorer";
 import { menuStore } from "../components/ContextMenu";
 import { clearCoverCache } from "../components/Cover";
+import { clearLyricsCache, lyricsDrawer } from "../state/lyrics";
 import { channelDefaults, dockTab, internetLookup, mixer, settingsOpen, view } from "../state/ui";
 
 export type Mock = ReturnType<typeof createMockBackend>;
@@ -36,6 +37,8 @@ function resetStores(): void {
   dockTab.set("automix");
   internetLookup.set(null);
   clearCoverCache();
+  clearLyricsCache();
+  lyricsDrawer.set(false);
   mixer.set({ A: { ...channelDefaults }, B: { ...channelDefaults }, crossfader: 0.5, master: 0 });
 }
 

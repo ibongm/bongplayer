@@ -18,6 +18,8 @@ import type { AppInfo, DeckName, IpcResult } from "./ipc/types";
 import { openSource, run, status } from "./state/app";
 import { useStore } from "./state/store";
 import { dockTab, send, settingsOpen, view } from "./state/ui";
+import { lyricsDrawer } from "./state/lyrics";
+import { LyricsDrawer } from "./components/Lyrics";
 import { Titlebar } from "./Titlebar";
 
 interface AppProps {
@@ -108,6 +110,11 @@ function useGlobalShortcuts(): void {
         radioOpen.set(!radioOpen.get());
         return;
       }
+      if (ctrl && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        lyricsDrawer.set(!lyricsDrawer.get());
+        return;
+      }
       if (ctrl && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
         dockTab.set(dockTab.get() === "info" ? "automix" : "info");
@@ -188,6 +195,7 @@ export function App({ appInfo }: AppProps): ReactNode {
       <main className="flex min-h-0 w-full flex-1 flex-col">
         <MainArea />
       </main>
+      <LyricsDrawer />
       <SettingsDialog />
       <ContextMenuHost />
       <DialogHost />
