@@ -6,6 +6,35 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 06:16 — M3: Music library core — tag cache, BPM/key analysis, crates, playlists, M3U import
+- **Added:** the music library database (`crates/library`, SQLite). It remembers every track's
+  tags (title, artist, album, remix, genre, year, length, BPM, key, cover yes/no), so a folder
+  opened a second time is not read from disk again; only new or changed files are. A file that
+  has disappeared is marked "missing" instead of vanishing.
+- **Added:** when tags are missing, artist and title come from the file name ("01 - Artist -
+  Title.mp3"); "(Extended Mix)" and similar go into a separate Remix column.
+- **Added:** BPM and key analysis. It uses about a minute from the middle of the track, many
+  tracks in parallel. Half/double-tempo mistakes (the old app's "163 vs 82") are avoided by
+  following the kick drum and bass. Keys are shown in Camelot notation (8A = A minor).
+  A manual BPM always wins over the analysed one.
+- **Added:** crates (a set of tracks) and playlists (ordered, repeats allowed): create, rename,
+  delete, add, remove. Hot cues, ratings, play count / last played and settings are stored.
+- **Added:** `.m3u` / `.m3u8` import as a playlist: relative and absolute paths, old Windows
+  text encoding; files that cannot be found and web-stream lines are listed, not dropped.
+- **Added:** drive list (including USB sticks and network drives) and one-folder-at-a-time
+  browsing — never a full disk scan.
+- **Changed:** debug builds now optimise third-party libraries (decoders, SQLite, FFT) so the
+  development app plays smoothly and speed tests measure real speed.
+- **Tests:** 21 library tests pass — BPM within 0.1 of the true value at 70, 82, 95, 117, 124,
+  128, 140, 168 and 174 BPM (82 and 168 no longer flip to 164 / 84); 8 of 8 keys correct;
+  MP3 files analysed correctly (128 BPM 8A, 82 BPM 9B, 168 BPM 12B); speed **70.7 tracks/s**
+  on this PC (target ≥ 5); a 50,000-track library opens in **0.12 s** (target < 1 s); second
+  folder scan reads 0 files from disk; crates/playlists/M3U behave as described.
+- **Not verified:** BPM/key of the owner's real songs — the plan's regression list (Come
+  Together, Smells Like Teen Spirit, Johnny B. Goode) needs the owner's files and confirmed
+  values; the synthetic tests above stand in for now. Speed on the bar laptop (fewer cores).
+- **Commit:** pending
+
 ### 2026-10-10 05:57 — M2: Preferred output device (DDJ-400) with automatic switching
 - **Added:** a preferred output device. When it is plugged in, the music moves to it; when it
   disappears, the music falls back to the Windows default device and keeps playing; when it
@@ -24,7 +53,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   still pass. On this PC the device list shows the real devices (Realtek headphones, LG monitor).
 - **Not verified:** with the real DDJ-400 — owner check (switching, and the headphone spike with
   `channel_test`).
-- **Commit:** pending
+- **Commit:** 8c5e814
 
 ### 2026-10-10 05:54 — M2: Pitch, key lock, pitch bend and scratching on the decks
 - **Decision (owner, 2026-10-10):** after M1 the owner checked `play_file`: music played fine

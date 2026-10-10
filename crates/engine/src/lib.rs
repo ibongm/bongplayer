@@ -17,6 +17,8 @@ pub mod resample;
 pub mod strip;
 pub mod track;
 
-pub use decode::{decode_to_end, start_decoding, DecodeError, DecodingTrack};
+pub use decode::{
+    decode_excerpt, decode_to_end, start_decoding, DecodeError, DecodingTrack, Excerpt,
+};
 pub use engine::{new_engine, Command, DeckId, Engine, EngineError, EngineHandle, EngineStatus};
 pub use track::{DecodeState, TrackBuffer};

@@ -14,9 +14,10 @@ use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
 use symphonia::core::codecs::CodecParameters;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
-use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
+use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
+use symphonia::core::units::Time;
 
 use crate::mp4_edit;
 use crate::track::{f32_to_i16, TrackBuffer};
@@ -67,8 +68,19 @@ impl DecodingTrack {
     }
 }
 
-/// Opens `path` and starts decoding it on a background thread.
-pub fn start_decoding(path: &Path) -> Result<DecodingTrack, DecodeError> {
+/// A file opened and probed, ready to decode.
+struct Opened {
+    reader: Box<dyn FormatReader>,
+    decoder: Box<dyn AudioDecoder>,
+    params: symphonia::core::codecs::audio::AudioCodecParameters,
+    track_id: u32,
+    sample_rate: u32,
+    channels: usize,
+    trim: Option<mp4_edit::AudioEdit>,
+    expected_frames: Option<u64>,
+}
+
+fn open_audio(path: &Path) -> Result<Opened, DecodeError> {
     let file = File::open(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => DecodeError::NotFound(path.to_path_buf()),
         _ => DecodeError::Io(path.to_path_buf(), e),
@@ -114,15 +126,29 @@ pub fn start_decoding(path: &Path) -> Result<DecodingTrack, DecodeError> {
         None
     };
     let expected_frames = trim.map(|t| t.keep_frames).or(track.num_frames);
-
-    let buffer = Arc::new(TrackBuffer::new(sample_rate));
-    let job = DecodeJob {
+    Ok(Opened {
         reader,
         decoder,
         params,
         track_id: track.id,
-        skip: trim.map_or(0, |t| t.skip_frames),
-        keep: trim.map(|t| t.keep_frames),
+        sample_rate,
+        channels,
+        trim,
+        expected_frames,
+    })
+}
+
+/// Opens `path` and starts decoding it on a background thread.
+pub fn start_decoding(path: &Path) -> Result<DecodingTrack, DecodeError> {
+    let o = open_audio(path)?;
+    let buffer = Arc::new(TrackBuffer::new(o.sample_rate));
+    let job = DecodeJob {
+        reader: o.reader,
+        decoder: o.decoder,
+        params: o.params,
+        track_id: o.track_id,
+        skip: o.trim.map_or(0, |t| t.skip_frames),
+        keep: o.trim.map(|t| t.keep_frames),
     };
     let thread = std::thread::Builder::new()
         .name("bong-decode".into())
@@ -134,9 +160,90 @@ pub fn start_decoding(path: &Path) -> Result<DecodingTrack, DecodeError> {
 
     Ok(DecodingTrack {
         buffer,
-        expected_frames,
-        channels,
+        expected_frames: o.expected_frames,
+        channels: o.channels,
         thread,
+    })
+}
+
+/// A mono excerpt of a file, for analysis.
+#[derive(Debug, Clone)]
+pub struct Excerpt {
+    pub sample_rate: u32,
+    /// Mono samples (average of all channels).
+    pub samples: Vec<f32>,
+    /// Length of the whole file in frames, if the container says.
+    pub total_frames: Option<u64>,
+    /// Where the excerpt starts in the file, in frames (approximate after a coarse seek).
+    pub start_frame: u64,
+}
+
+/// Decodes about `seconds` of mono audio starting near `start_fraction` (0.0 … 1.0) of the
+/// file. Used by BPM / key analysis, which does not need the whole file.
+pub fn decode_excerpt(
+    path: &Path,
+    start_fraction: f64,
+    seconds: f64,
+) -> Result<Excerpt, DecodeError> {
+    let mut o = open_audio(path)?;
+    let rate = o.sample_rate;
+    let mut start_frame = 0u64;
+    if let Some(total) = o.expected_frames {
+        let want = (total as f64 * start_fraction.clamp(0.0, 0.95)) as u64;
+        let secs = (want / u64::from(rate)) as u32;
+        if secs > 0 {
+            let to = SeekTo::Time {
+                time: Time::from(secs),
+                track_id: Some(o.track_id),
+            };
+            if o.reader.seek(SeekMode::Coarse, to).is_ok() {
+                o.decoder.reset();
+                start_frame = u64::from(secs) * u64::from(rate);
+            }
+        }
+    }
+    let wanted = (seconds.max(0.0) * f64::from(rate)) as usize;
+    let mut samples = Vec::with_capacity(wanted);
+    let mut interleaved: Vec<f32> = Vec::new();
+    let mut bad = 0u32;
+    while samples.len() < wanted {
+        let packet = match o.reader.next_packet() {
+            Ok(Some(p)) => p,
+            Ok(None) => break,
+            Err(SymphoniaError::IoError(_)) => break,
+            Err(SymphoniaError::ResetRequired) => {
+                o.decoder.reset();
+                continue;
+            }
+            Err(e) => return Err(DecodeError::Unsupported(path.to_path_buf(), e.to_string())),
+        };
+        if packet.track_id != o.track_id {
+            continue;
+        }
+        let decoded = match o.decoder.decode(&packet) {
+            Ok(b) => b,
+            Err(SymphoniaError::DecodeError(_)) => {
+                bad += 1;
+                if bad >= MAX_BAD_PACKETS {
+                    break;
+                }
+                continue;
+            }
+            Err(e) => return Err(DecodeError::Unsupported(path.to_path_buf(), e.to_string())),
+        };
+        bad = 0;
+        let ch = decoded.spec().channels().count().max(1);
+        decoded.copy_to_vec_interleaved(&mut interleaved);
+        for frame in interleaved.chunks_exact(ch) {
+            samples.push(frame.iter().sum::<f32>() / ch as f32);
+        }
+    }
+    samples.truncate(wanted);
+    Ok(Excerpt {
+        sample_rate: rate,
+        samples,
+        total_frames: o.expected_frames,
+        start_frame,
     })
 }
 

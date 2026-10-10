@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/engine", "crates/stretch", "src-tauri"]
+members = ["crates/engine", "crates/library", "crates/stretch", "src-tauri"]
 
 [workspace.package]
 edition = "2021"
@@ -10,3 +10,11 @@ license = "UNLICENSED"
 [profile.release]
 codegen-units = 1
 lto = true
+
+# Debug builds: optimise dependencies (decoders, SQLite, FFT) so `tauri dev` plays smoothly
+# and the analysis benchmark measures real speed; our own crates stay quick to compile.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
