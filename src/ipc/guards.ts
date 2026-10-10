@@ -159,6 +159,16 @@ export function isStationRow(v: unknown): v is import("./types").StationRow {
   return isRecord(v) && isNumber(v.id) && isString(v.name) && isString(v.url) && isNumber(v.playMinutes);
 }
 
+export function isLookupOutcome(v: unknown): v is import("./types").LookupOutcome {
+  return (
+    isRecord(v) &&
+    isBool(v.fetched) &&
+    arrayOf(isString)(v.filled) &&
+    isBool(v.cover) &&
+    isStrOrNull(v.source)
+  );
+}
+
 export function isPreset(v: unknown): v is import("./types").Preset {
   return isRecord(v) && isString(v.name) && isString(v.url);
 }

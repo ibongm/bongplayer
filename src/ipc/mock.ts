@@ -920,6 +920,27 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       else queue.splice(at, 0, item);
       return resolve(ok(queueEntries()));
     },
+    trackCover: (trackId) => {
+      // Every third track has a cover in the stand-in library.
+      if (!rows.has(trackId) || trackId % 3 !== 0) return resolve(fail("no cover"));
+      // A tiny valid PNG (1 × 1 pixel).
+      const png = Uint8Array.from(
+        atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="),
+        (c) => c.charCodeAt(0),
+      );
+      return resolve(ok(png.buffer));
+    },
+    lookupTrack: (trackId) => {
+      calls.push(["lookupTrack", trackId]);
+      if (settings.get("internet.lookup") !== "1") {
+        return resolve(fail("Internet lookup is off — switch it on in Settings → Internet"));
+      }
+      const r = rows.get(trackId);
+      if (!r) return resolve(fail(`track ${trackId} not found`));
+      if (r.album !== "") return resolve(ok({ fetched: false, filled: [], cover: false, source: null }));
+      rows.set(trackId, { ...r, album: "Looked-up Album", year: r.year ?? 1999 });
+      return resolve(ok({ fetched: true, filled: ["album", "year"], cover: false, source: "MusicBrainz" }));
+    },
     queueList: () => resolve(ok(queueEntries())),
     queueAdd: (trackIds, before) => {
       calls.push(["queueAdd", { trackIds, before }]);

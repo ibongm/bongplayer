@@ -769,6 +769,46 @@ pub async fn duck_depth(state: St<'_>, db: f32) -> AppResult<()> {
     .await
 }
 
+// ----- covers & internet lookup -----
+
+/// A track's cover as JPEG bytes (thumbnail or large). Errors "no cover" when there is none.
+#[tauri::command]
+pub async fn track_cover(
+    state: St<'_>,
+    track_id: i64,
+    large: bool,
+) -> AppResult<tauri::ipc::Response> {
+    blocking(&state, move |s| {
+        let size = if large {
+            library::covers::CoverSize::Large
+        } else {
+            library::covers::CoverSize::Thumb
+        };
+        match lock(&s.library).cover(track_id, size).map_err(err)? {
+            Some((bytes, _)) => Ok(tauri::ipc::Response::new(bytes)),
+            None => Err("no cover".into()),
+        }
+    })
+    .await
+}
+
+/// Looks one track up online now (only when the switch is on; once per track).
+#[tauri::command]
+pub async fn lookup_track(
+    state: St<'_>,
+    track_id: i64,
+) -> AppResult<library::lookup::LookupOutcome> {
+    if !state.internet_lookup_on() {
+        return Err("Internet lookup is off — switch it on in Settings → Internet".into());
+    }
+    blocking(&state, move |s| {
+        let lib = s.background_library()?;
+        lib.lookup_track(track_id, &library::lookup::NetFetcher::default())
+            .map_err(err)
+    })
+    .await
+}
+
 // ----- radio -----
 
 /// Stations offered ready-made. Addresses checked on 2026-10-10 (see CHANGELOG).

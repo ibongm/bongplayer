@@ -160,6 +160,13 @@ export interface DeckSnapshot {
   radioState: string | null;
 }
 
+export interface LookupOutcome {
+  fetched: boolean;
+  filled: string[];
+  cover: boolean;
+  source: string | null;
+}
+
 export interface StationRow {
   id: number;
   name: string;

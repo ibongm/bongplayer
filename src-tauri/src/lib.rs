@@ -19,6 +19,8 @@ use crate::state::AppState;
 
 /// Settings key of the preferred output device id.
 pub const PREFERRED_OUTPUT_KEY: &str = "audio.preferred_output";
+/// Settings key of the internet lookup switch ("1" = on). OFF unless the user turns it on.
+pub const INTERNET_LOOKUP_KEY: &str = "internet.lookup";
 /// Settings key of the limiter ceiling in dBFS (written by the Audio settings tab).
 pub const LIMITER_CEILING_KEY: &str = "audio.limiter_ceiling";
 
@@ -26,7 +28,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     std::fs::create_dir_all(&data_dir)?;
     let db_path = data_dir.join("library.db");
-    let library = Library::open(&db_path)?;
+    let mut library = Library::open(&db_path)?;
+    library.set_covers_dir(data_dir.join("covers"));
     let preferred = library
         .setting(PREFERRED_OUTPUT_KEY)
         .ok()
@@ -154,6 +157,8 @@ pub fn run() {
             deck_load_station,
             deck_load_url,
             queue_add_station,
+            track_cover,
+            lookup_track,
             queue_list,
             queue_add,
             queue_add_paths,

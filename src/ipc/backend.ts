@@ -18,6 +18,7 @@ import {
   isFolderTracks,
   isImportReport,
   isLockInfo,
+  isLookupOutcome,
   isNumber,
   isQueueEntry,
   isString,
@@ -31,6 +32,7 @@ import type {
   AppInfo,
   AutomixConfig,
   LockInfo,
+  LookupOutcome,
   MasterAction,
   CrateEntry,
   CrateInfo,
@@ -110,6 +112,9 @@ export interface Backend {
   deckLoadStation(deck: DeckName, id: number): Promise<IpcResult<TrackRow>>;
   deckLoadUrl(deck: DeckName, url: string, name: string | null): Promise<IpcResult<TrackRow>>;
   queueAddStation(id: number, before: number | null): Promise<IpcResult<QueueEntry[]>>;
+  /** JPEG bytes of a track's cover; fails with "no cover" when there is none. */
+  trackCover(trackId: number, large: boolean): Promise<IpcResult<ArrayBuffer>>;
+  lookupTrack(trackId: number): Promise<IpcResult<LookupOutcome>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -220,6 +225,8 @@ export const tauriBackend: Backend = {
   deckLoadStation: (deck, id) => call("deck_load_station", { deck, id }, isTrackRow),
   deckLoadUrl: (deck, url, name) => call("deck_load_url", { deck, url, name }, isTrackRow),
   queueAddStation: (id, before) => call("queue_add_station", { id, before }, queue),
+  trackCover: (trackId, large) => call("track_cover", { trackId, large }, isArrayBuffer),
+  lookupTrack: (trackId) => call("lookup_track", { trackId }, isLookupOutcome),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),

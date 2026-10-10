@@ -6,6 +6,17 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:33 — M7: App — cover pictures and the internet lookup switch
+- **Added:** the app can now hand cover pictures (small or large) to the screen, and look a
+  track up online on request. Covers are kept in the app's data folder (`covers`).
+- **Added:** when the internet lookup switch is ON, a track is looked up in the background
+  the first time it is loaded on a deck (once per track; the music is never held up).
+- **Security:** the switch is OFF unless the owner turns it on; with it off, nothing is sent
+  and a lookup request answers "Internet lookup is off — switch it on in Settings → Internet".
+- **Tests:** new app test passes: lookup is off by default and only on when switched on.
+- **Not verified:** a real lookup from the running app (owner, with the setting on).
+- **Commit:** pending
+
 ### 2026-10-10 11:28 — M7: Covers and the optional internet lookup (library side)
 - **Added:** covers are found without internet: the picture embedded in the file (the front
   cover when marked), otherwise a picture in the track's folder (folder.jpg, cover.jpg,
@@ -28,7 +39,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   only empty fields are filled, the second lookup sends nothing, and no file names or paths
   are sent. Real album art is not stored in the repository; tests use plain-colour pictures.
 - **Not verified:** lookups against the live services from the app (owner, with the setting on).
-- **Commit:** pending
+- **Commit:** 18eca8f
 
 ### 2026-10-10 11:22 — M2–M6: Automated tests ticked in the plan after green CI
 - **Changed:** `PLAN.md` — 20 automated M2–M6 acceptance tests ticked, plus "radio works as a

@@ -350,6 +350,7 @@ impl AppState {
             }
         }
         self.waves.start(row.id, Arc::clone(&buffer));
+        self.lookup_in_background(row.id);
         lock(&self.decks)[deck.index()] = Some(DeckTrack {
             row: row.clone(),
             source: DeckSource::File {
@@ -442,6 +443,41 @@ impl AppState {
         lock(&self.library)
             .set_hot_cue(track_id, slot as u8, frame)
             .map_err(err)
+    }
+
+    /// The internet lookup switch (OFF unless the user turned it on).
+    pub fn internet_lookup_on(&self) -> bool {
+        lock(&self.library)
+            .setting(crate::INTERNET_LOOKUP_KEY)
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("1")
+    }
+
+    /// A separate database connection for slow background work (analysis, lookups), so the
+    /// library stays responsive.
+    pub fn background_library(&self) -> AppResult<Library> {
+        let mut lib = Library::open(&self.db_path).map_err(err)?;
+        if let Some(dir) = self.db_path.parent() {
+            lib.set_covers_dir(dir.join("covers"));
+        }
+        Ok(lib)
+    }
+
+    /// Looks a track up online in the background if the switch is on (once per track).
+    pub fn lookup_in_background(&self, track_id: i64) {
+        if track_id <= 0 || !self.internet_lookup_on() {
+            return;
+        }
+        let Ok(lib) = self.background_library() else {
+            return;
+        };
+        let _ = std::thread::Builder::new()
+            .name("bong-lookup".into())
+            .spawn(move || {
+                let _ = lib.lookup_track(track_id, &library::lookup::NetFetcher::default());
+            });
     }
 
     /// Track BPM of the deck's track (analysed, tagged or manual).
