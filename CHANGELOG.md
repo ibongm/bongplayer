@@ -6,6 +6,17 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 05:05 — M1: Test audio files for the engine
+- **Added:** short test tones (2 seconds, 1 kHz, half volume, stereo) in every format the
+  engine must read: WAV and FLAC at 44.1 and 48 kHz, MP3, M4A (AAC) and OGG (Vorbis), plus a
+  deliberately broken file. They were made with our own script, so there is no copyright issue;
+  about 1 MB in total.
+- **Decision:** the script uses ffmpeg, downloaded as a portable copy into a git-ignored `tools/`
+  folder on this PC. ffmpeg is only for making test files; it is not part of BongPlayer.
+- **Tests:** none yet (the files are used by the decoder tests in the next entry).
+- **Not verified:** none.
+- **Commit:** pending
+
 ### 2026-10-10 04:46 — M0: Manual check passed — M0 complete
 - **Changed:** `PLAN.md` — the manual M0 test is ticked. The owner installed the app from the
   GitHub installer: the window opens with the app shell, and the titlebar works (moving the window,

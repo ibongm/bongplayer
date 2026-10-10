@@ -14,3 +14,6 @@ src-tauri/gen/schemas/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Local helper tools (e.g. portable ffmpeg for making test fixtures) — never committed
+tools/

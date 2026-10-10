@@ -3,3 +3,8 @@
 *.png binary
 *.ico binary
 *.icns binary
+*.wav binary
+*.flac binary
+*.mp3 binary
+*.m4a binary
+*.ogg binary
