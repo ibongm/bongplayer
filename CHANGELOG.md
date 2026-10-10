@@ -6,6 +6,24 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 11:50 — M9: Sampler in the audio engine
+- **Added:** 8 sampler pads in the engine. A pad holds a short sound (up to 30 s; longer files
+  are refused with a clear message) and plays it from the start each time it is pressed.
+  Each pad has its own volume (−∞ … +6 dB) and an optional choke group 1–4: pads in the same
+  group cut each other off (with a 5 ms fade, so no click).
+- **Added:** while any pad plays, the music drops by 9 dB over 50 ms and comes back over
+  250 ms after the last pad stops. The pads themselves are not lowered.
+- **Decision:** pads are mixed in after the deck channels, faders and crossfader, so a closed
+  deck fader, an EQ kill or the filter never silences them; only the master level and the
+  limiter apply. Old pad sounds are freed outside the audio thread, like old tracks.
+- **Tests:** 5 new engine tests pass: pads play with every deck control turned down; the
+  ducking ramp measured millisecond by millisecond (−4.5 dB at 25 ms, −9 dB at 50 ms, held,
+  back half way at +125 ms and fully at +250 ms) and in the sound itself (music −9.0 dB, pad
+  untouched); choke groups and pad volume; a 44.1 kHz sound plays at the right pitch and
+  length on 48 kHz output; too-long and empty files are refused.
+- **Not verified:** how the ducking sounds on the bar speakers (owner).
+- **Commit:** pending
+
 ### 2026-10-10 11:46 — M8: KARAOKE tab and the LRC drawer
 - **Added:** the mixer's top row now has **MIX | KARAOKE** tabs (above the master controls)
   and an **LRC** button. KARAOKE shows the lyrics of the deck the audience hears (the only
@@ -20,7 +38,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   active; the tab sits above the master controls; the highlight follows the position (one line
   at a time); clicking a line sends "seek to 15 s"; LRC button and Ctrl+Y open/close the drawer.
 - **Not verified:** that the highlight looks smooth and readable at the bar (owner).
-- **Commit:** pending
+- **Commit:** b847096
 
 ### 2026-10-10 11:46 — M8: Lyrics — LRC reader and where lyrics come from
 - **Added:** a reader for LRC lyric files (timed lines). It understands every common way of

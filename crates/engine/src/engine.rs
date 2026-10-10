@@ -13,7 +13,8 @@ use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::deck::{Deck, LoadedTrack, HOT_CUES};
 use crate::eq::Band;
-use crate::mixer::Mixer;
+use crate::mixer::{Mixer, SAMPLER_DUCK_DB};
+use crate::sampler::{Sample, Sampler, PADS};
 use crate::track::TrackBuffer;
 
 /// Frames processed per internal block; output buffers of any size are split into these.
@@ -191,6 +192,30 @@ pub enum Command {
         release_seconds: f64,
     },
     SetLimiterCeilingDb(f32),
+    /// Puts a sample on a sampler pad (None clears the pad).
+    LoadPad {
+        pad: usize,
+        sample: Option<Arc<Sample>>,
+    },
+    /// Plays a pad from the start.
+    TriggerPad(usize),
+    StopPad(usize),
+    StopAllPads,
+    SetPadGainDb {
+        pad: usize,
+        db: f32,
+    },
+    /// Choke group 1…4 (pads in a group cut each other off), 0 = none.
+    SetPadChoke {
+        pad: usize,
+        group: u8,
+    },
+}
+
+/// Memory the audio thread lets go of; freed on the control thread.
+enum Garbage {
+    Track(LoadedTrack),
+    Sample(Arc<Sample>),
 }
 
 /// What a deck is doing, readable from any thread.
@@ -352,6 +377,8 @@ pub struct EngineStatus {
     transitions_done: AtomicU64,
     crossfader_bits: AtomicU32,
     duck_db_bits: AtomicU32,
+    sampler_duck_db_bits: AtomicU32,
+    pads_playing: AtomicU32,
     /// Deck A (after its channel strip), deck B, master output.
     meters: [Meter; 3],
 }
@@ -383,6 +410,14 @@ impl EngineStatus {
     /// Current DUCK attenuation in dB (0 = none).
     pub fn duck_db(&self) -> f32 {
         f32::from_bits(self.duck_db_bits.load(Ordering::Relaxed))
+    }
+    /// Current sampler ducking of the music in dB (0 = none, −9 while a pad plays).
+    pub fn sampler_duck_db(&self) -> f32 {
+        f32::from_bits(self.sampler_duck_db_bits.load(Ordering::Relaxed))
+    }
+    /// Bit `i` set = sampler pad `i` is playing.
+    pub fn pads_playing(&self) -> u8 {
+        (self.pads_playing.load(Ordering::Relaxed) & 0xff) as u8
     }
     /// Total output frames produced so far (also used by the output watchdog).
     pub fn frames_rendered(&self) -> u64 {
@@ -445,9 +480,11 @@ pub struct Engine {
     settings: MixerSettings,
     buf_a: Vec<f32>,
     buf_b: Vec<f32>,
+    buf_s: Vec<f32>,
+    sampler: Sampler,
     transition: Option<Transition>,
     commands: Consumer<Command>,
-    garbage: Producer<LoadedTrack>,
+    garbage: Producer<Garbage>,
     status: Arc<EngineStatus>,
 }
 
@@ -462,7 +499,7 @@ impl std::fmt::Debug for Engine {
 /// The control side: send commands, read status.
 pub struct EngineHandle {
     commands: Producer<Command>,
-    garbage: Consumer<LoadedTrack>,
+    garbage: Consumer<Garbage>,
     status: Arc<EngineStatus>,
 }
 
@@ -498,6 +535,8 @@ pub fn new_engine(sample_rate: u32) -> (EngineHandle, Engine) {
         settings,
         buf_a: vec![0.0; 2 * MAX_BLOCK],
         buf_b: vec![0.0; 2 * MAX_BLOCK],
+        buf_s: vec![0.0; 2 * MAX_BLOCK],
+        sampler: Sampler::new(sample_rate),
         transition: None,
         commands: cmd_rx,
         garbage: gc_tx,
@@ -538,6 +577,14 @@ impl EngineHandle {
         self.send(Command::Load { deck, track })
     }
 
+    /// Puts a sample on a sampler pad (0…7).
+    pub fn load_pad(&mut self, pad: usize, sample: Sample) -> Result<(), EngineError> {
+        self.send(Command::LoadPad {
+            pad,
+            sample: Some(Arc::new(sample)),
+        })
+    }
+
     pub fn status(&self) -> &EngineStatus {
         &self.status
     }
@@ -546,10 +593,13 @@ impl EngineHandle {
         Arc::clone(&self.status)
     }
 
-    /// Frees tracks the engine has let go of. Called automatically on every `send`.
+    /// Frees tracks and samples the engine has let go of. Called automatically on every `send`.
     pub fn collect_garbage(&mut self) {
-        while let Ok(track) = self.garbage.pop() {
-            drop(track);
+        while let Ok(g) = self.garbage.pop() {
+            match g {
+                Garbage::Track(t) => drop(t),
+                Garbage::Sample(s) => drop(s),
+            }
         }
     }
 }
@@ -587,6 +637,7 @@ impl Engine {
         }
         self.mixer = Mixer::new(sample_rate);
         self.settings.apply_all(&mut self.mixer);
+        self.sampler.set_out_rate(sample_rate);
         self.status
             .sample_rate
             .store(sample_rate, Ordering::Relaxed);
@@ -609,7 +660,15 @@ impl Engine {
             let (a, b) = (&mut self.buf_a[..n], &mut self.buf_b[..n]);
             self.decks[0].render(a);
             self.decks[1].render(b);
-            self.mixer.process(a, b, &mut block[..n]);
+            let pads = &mut self.buf_s[..n];
+            pads.fill(0.0);
+            // Duck for the whole block if a pad plays at its start (so a pad that ends inside
+            // the block releases from the next one).
+            let pads_on = self.sampler.any_playing();
+            self.sampler.render_add(pads);
+            self.mixer.sampler_duck.set(pads_on, SAMPLER_DUCK_DB);
+            self.mixer
+                .process_with_sampler(a, b, Some(pads), &mut block[..n]);
             block[n..].fill(0.0);
             acc[0].add(a);
             acc[1].add(b);
@@ -627,6 +686,13 @@ impl Engine {
         self.status
             .duck_db_bits
             .store(self.mixer.ducker.level_db().to_bits(), Ordering::Relaxed);
+        self.status.sampler_duck_db_bits.store(
+            self.mixer.sampler_duck.level_db().to_bits(),
+            Ordering::Relaxed,
+        );
+        self.status
+            .pads_playing
+            .store(u32::from(self.sampler.playing_mask()), Ordering::Relaxed);
         for (deck, s) in self.decks.iter().zip(&self.status.decks) {
             s.publish(deck);
         }
@@ -705,11 +771,15 @@ impl Engine {
 
     fn retire(&mut self, old: Option<LoadedTrack>) {
         if let Some(track) = old {
-            if let Err(rtrb::PushError::Full(track)) = self.garbage.push(track) {
-                // The control thread has stopped collecting; freeing ~100 MB here would stall
-                // the audio thread, so the memory is deliberately leaked instead.
-                std::mem::forget(track);
-            }
+            self.throw_away(Garbage::Track(track));
+        }
+    }
+
+    fn throw_away(&mut self, g: Garbage) {
+        if let Err(rtrb::PushError::Full(g)) = self.garbage.push(g) {
+            // The control thread has stopped collecting; freeing ~100 MB here would stall
+            // the audio thread, so the memory is deliberately leaked instead.
+            std::mem::forget(g);
         }
     }
 
@@ -832,6 +902,20 @@ impl Engine {
                 }
             }
             Command::SetDuck { on, depth_db } => self.mixer.ducker.set(on, depth_db),
+            Command::LoadPad { pad, sample } => {
+                if pad < PADS {
+                    if let Some(old) = self.sampler.load(pad, sample) {
+                        self.throw_away(Garbage::Sample(old));
+                    }
+                } else if let Some(s) = sample {
+                    self.throw_away(Garbage::Sample(s));
+                }
+            }
+            Command::TriggerPad(pad) => self.sampler.trigger(pad),
+            Command::StopPad(pad) => self.sampler.stop(pad),
+            Command::StopAllPads => self.sampler.stop_all(),
+            Command::SetPadGainDb { pad, db } => self.sampler.set_gain_db(pad, db),
+            Command::SetPadChoke { pad, group } => self.sampler.set_choke(pad, group),
             Command::ConfigureDuck {
                 depth_db,
                 attack_seconds,

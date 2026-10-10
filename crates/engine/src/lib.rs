@@ -17,6 +17,7 @@ mod mp4_edit;
 pub mod offline;
 pub mod output;
 pub mod resample;
+pub mod sampler;
 pub mod strip;
 pub mod track;
 
