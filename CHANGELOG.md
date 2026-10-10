@@ -6,6 +6,41 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:00 — M4: Deck and mixer screens, three views, top bar, Settings (Audio)
+- **Added:** three views, switched at the top (or Ctrl+1 / 2 / 3): **STANDARD** (waveforms,
+  decks, mixer and library), **DECKS** (bigger decks, no library), **LIBRARY** (small decks and
+  a big library).
+- **Added:** top bar: venue clock, view tabs, keyboard-shortcut list (⌨), a status pill showing
+  which sound card plays at which rate (red "NO OUTPUT" when none; click for audio settings),
+  and ⚙ Settings.
+- **Added:** scrolling waveforms of both decks at the top: playhead in the centre, colours by
+  bass / mids / treble, hot cue flags, loop region, big A / B letters.
+- **Added:** full decks: title / artist; BPM, KEY (+ key shift), GAIN, REMAIN, TOTAL and TAP
+  (tap 4+ times to set the BPM); overview waveform (click to jump); loops 1–32 beats, IN / OUT,
+  ½ / ×2, EXIT / RELOOP; hot cues 1–8 (click empty = set, click = jump, right-click = clear,
+  saved per track); platter (drag around to scratch, wheel to nudge or move); pitch fader with
+  ±8 / 16 / 50 % ranges, bend − / +, reset, KEY LOCK, key shift ♭ / ♯; CUE · PAUSE · PLAY ·
+  CUP · SYNC. While a file is read the deck shows its progress, then the waveform — or an error.
+- **Added:** centre mixer: per channel GAIN, HI / MID / LOW with kill buttons, FILTER, level
+  meter and volume fader; MASTER level and meter; crossfader. Every knob and fader works with
+  drag, mouse wheel and arrow keys, and resets with a right-click or double-click; every
+  control has a tooltip.
+- **Added:** keyboard: F1–F4 = deck A play / CUE / CUP / SYNC, F5–F8 = deck B; 1–8 = hot cues
+  deck A, Shift+1–8 = deck B; Ctrl+, = Settings.
+- **Added:** Settings window with the **Audio** tab: preferred output device (or follow the
+  Windows default), what is playing now, limiter ceiling. Other tabs arrive with their
+  features (M5–M10).
+- **Tests:** 10 new screen tests pass (50 in total): hot cues set / jump / clear; every loop
+  button; pitch bend while held; CUE press / release; CUP; TAP gives 120 BPM from taps 0.5 s
+  apart; clicking the overview jumps to the right second; reading progress then a visible
+  error (never an endless spinner); knobs adjust with arrows and reset on right-click; kills;
+  crossfader; the three views; Settings saves the preferred device; F1 and 1 shortcuts.
+  Looked at in a browser with a playing track: waveforms scroll, platter turns, meters move.
+- **Not verified (owner, on the bar PC):** smooth 60 fps scrolling of both waveforms on the
+  bar laptop; overview click accuracy; how scratching with the mouse feels; real audio of
+  loops, CUE, filter and EQ.
+- **Commit:** pending
+
 ### 2026-10-10 07:00 — M4: App — waveforms, SYNC, auto-loop in beats, output-device settings, stall guard
 - **Added:** the waveform of each loaded track is computed in Rust (150 slices per second,
   with bass / mids / treble strength) and sent to the screen in a compact binary form.
@@ -20,7 +55,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Tests:** 3 new app tests pass (waveform format, bass vs. treble colouring, a stalled
   decode is reported within the time limit instead of waited on forever).
 - **Not verified:** with real tracks and the DDJ-400 (owner).
-- **Commit:** pending
+- **Commit:** 4a267a7
 
 ### 2026-10-10 06:46 — M4: Engine — loops, CUE / CUP, KEY shift, filter, level meters
 - **Added:** loops: auto-loop of a number of beats, loop IN / OUT, halve / double, exit and

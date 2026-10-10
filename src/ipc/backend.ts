@@ -5,6 +5,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   arrayOf,
   isAnalysisReport,
+  isArrayBuffer,
+  isOutputDevices,
   isAppInfo,
   isCrateEntry,
   isCrateInfo,
@@ -33,10 +35,12 @@ import type {
   FolderTracks,
   ImportReport,
   IpcResult,
+  OutputDevices,
   QueueEntry,
   StatusSnapshot,
   TrackRow,
   UiCommand,
+  Waveform,
 } from "./types";
 
 export interface Backend {
@@ -70,6 +74,9 @@ export interface Backend {
   hotCueSet(deck: DeckName, slot: number): Promise<IpcResult<null>>;
   hotCueClear(deck: DeckName, slot: number): Promise<IpcResult<null>>;
   engineCommand(command: UiCommand): Promise<IpcResult<null>>;
+  deckWaveform(trackId: number): Promise<IpcResult<Waveform>>;
+  outputDevices(): Promise<IpcResult<OutputDevices>>;
+  setPreferredOutput(id: string | null): Promise<IpcResult<null>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -110,6 +117,16 @@ const unit = (v: unknown): v is null => isUnit(v);
 const tracks = arrayOf(isTrackRow);
 const queue = arrayOf(isQueueEntry);
 
+/** Parses the binary waveform from Rust (see src-tauri/src/waveform.rs). */
+export function parseWaveform(buf: ArrayBuffer): Waveform | null {
+  if (buf.byteLength < 8) return null;
+  const view = new DataView(buf);
+  const binsPerSecond = view.getUint32(0, true) / 1000;
+  const count = view.getUint32(4, true);
+  if (buf.byteLength < 8 + count * 4 || binsPerSecond <= 0) return null;
+  return { binsPerSecond, count, bins: new Uint8Array(buf, 8, count * 4) };
+}
+
 export const tauriBackend: Backend = {
   appInfo: () => call("app_info", {}, isAppInfo),
   engineStatus: () => call("engine_status", {}, isStatusSnapshot),
@@ -142,6 +159,14 @@ export const tauriBackend: Backend = {
   hotCueSet: (deck, slot) => call("hot_cue_set", { deck, slot }, unit),
   hotCueClear: (deck, slot) => call("hot_cue_clear", { deck, slot }, unit),
   engineCommand: (command) => call("engine_command", { command }, unit),
+  deckWaveform: async (trackId) => {
+    const r = await call("deck_waveform", { trackId }, isArrayBuffer);
+    if (!r.ok) return r;
+    const w = parseWaveform(r.value);
+    return w ? { ok: true, value: w } : { ok: false, error: "waveform data is damaged" };
+  },
+  outputDevices: () => call("output_devices", {}, isOutputDevices),
+  setPreferredOutput: (id) => call("set_preferred_output", { id }, unit),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),

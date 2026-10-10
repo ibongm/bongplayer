@@ -109,6 +109,18 @@ export type UiCommand =
   | { type: "eq"; deck: DeckName; band: BandName; db: number }
   | { type: "kill"; deck: DeckName; band: BandName; on: boolean }
   | { type: "fader"; deck: DeckName; position: number }
+  | { type: "filter"; deck: DeckName; value: number }
+  | { type: "cuePress"; deck: DeckName }
+  | { type: "cueRelease"; deck: DeckName }
+  | { type: "cuePlay"; deck: DeckName }
+  | { type: "keyShift"; deck: DeckName; semitones: number }
+  | { type: "loopIn"; deck: DeckName }
+  | { type: "loopOut"; deck: DeckName }
+  | { type: "autoLoop"; deck: DeckName; beats: number }
+  | { type: "loopResize"; deck: DeckName; factor: number }
+  | { type: "loopExit"; deck: DeckName }
+  | { type: "loopReenter"; deck: DeckName }
+  | { type: "sync"; deck: DeckName }
   | { type: "crossfader"; position: number }
   | { type: "master"; db: number }
   | { type: "limiterCeiling"; db: number };
@@ -134,6 +146,14 @@ export interface DeckSnapshot {
   decoded: number;
   decodeError: string | null;
   cues: (number | null)[];
+  mainCue: number;
+  keyShift: number;
+  loopIn: number | null;
+  loopOut: number | null;
+  loopActive: boolean;
+  waveform: "none" | "computing" | "ready" | "failed";
+  /** [peak, rms] after the channel strip, linear. */
+  meter: [number, number];
 }
 
 export interface OutputSnapshot {
@@ -147,6 +167,28 @@ export interface StatusSnapshot {
   decks: [DeckSnapshot, DeckSnapshot];
   sampleRate: number;
   output: OutputSnapshot;
+  /** Master output [peak, rms], linear. */
+  master: [number, number];
+}
+
+export interface OutputDevice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface OutputDevices {
+  devices: OutputDevice[];
+  current: OutputDevice | null;
+  preferred: string | null;
+  sampleRate: number;
+}
+
+/** Decoded waveform: 4 bytes per bin (peak, bass, mids, treble). */
+export interface Waveform {
+  binsPerSecond: number;
+  bins: Uint8Array;
+  count: number;
 }
 
 /** Every IPC call resolves to this; it never rejects, so the UI always gets a visible state. */

@@ -75,6 +75,12 @@ interface MockDeck {
   pitchRange: number;
   keyLock: boolean;
   cues: (number | null)[];
+  mainCue: number;
+  cuePreview: boolean;
+  keyShift: number;
+  loopIn: number | null;
+  loopOut: number | null;
+  loopActive: boolean;
 }
 
 export function createMockBackend(options: MockOptions = {}): Backend & {
@@ -253,6 +259,12 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     pitchRange: 0.08,
     keyLock: false,
     cues: Array<number | null>(8).fill(null),
+    mainCue: 0,
+    cuePreview: false,
+    keyShift: 0,
+    loopIn: null,
+    loopOut: null,
+    loopActive: false,
   });
   const decks: Record<DeckName, MockDeck> = { A: newDeck(), B: newDeck() };
   const now = (): number => Date.now() / 1000;
@@ -291,6 +303,13 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       decoded: row ? 1 : 0,
       decodeError: null,
       cues: [...d.cues],
+      mainCue: d.mainCue,
+      keyShift: d.keyShift,
+      loopIn: d.loopIn,
+      loopOut: d.loopOut,
+      loopActive: d.loopActive,
+      waveform: row ? "ready" : "none",
+      meter: playing ? [0.5, 0.35] : [0, 0],
     };
   }
   function load(deck: DeckName, id: number): IpcResult<TrackRow> {
@@ -304,6 +323,10 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       return ok(null);
     }
     const d = decks[c.deck];
+    const jump = (t: number): void => {
+      d.position = Math.max(0, t);
+      d.startedAt = now();
+    };
     switch (c.type) {
       case "play":
       case "pause":
@@ -339,6 +362,74 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       case "keyLock":
         d.keyLock = c.on;
         return ok(null);
+      case "keyShift":
+        d.keyShift = Math.max(-12, Math.min(12, c.semitones));
+        return ok(null);
+      case "cuePress":
+        if (d.trackId === null) return ok(null);
+        if (d.playing && !d.cuePreview) {
+          d.playing = false;
+          jump(d.mainCue);
+        } else {
+          d.mainCue = position(d);
+          d.cuePreview = true;
+          jump(d.mainCue);
+          d.playing = true;
+        }
+        return ok(null);
+      case "cueRelease":
+        if (d.cuePreview) {
+          d.cuePreview = false;
+          d.playing = false;
+          jump(d.mainCue);
+        }
+        return ok(null);
+      case "cuePlay":
+        if (d.trackId === null) return ok(null);
+        jump(d.mainCue);
+        d.playing = true;
+        return ok(null);
+      case "loopIn":
+        d.loopIn = position(d);
+        return ok(null);
+      case "loopOut": {
+        const here = position(d);
+        if (d.loopIn !== null && here > d.loopIn) {
+          d.loopOut = here;
+          d.loopActive = true;
+        }
+        return ok(null);
+      }
+      case "autoLoop": {
+        const row = d.trackId === null ? undefined : rows.get(d.trackId);
+        if (!row?.bpm) return fail("auto-loop needs the track's BPM (analyze it or use TAP)");
+        const start = position(d);
+        d.loopIn = start;
+        d.loopOut = start + (c.beats * 60) / row.bpm;
+        d.loopActive = true;
+        return ok(null);
+      }
+      case "loopResize":
+        if (d.loopIn !== null && d.loopOut !== null) {
+          d.loopOut = d.loopIn + (d.loopOut - d.loopIn) * c.factor;
+        }
+        return ok(null);
+      case "loopExit":
+        d.loopActive = false;
+        return ok(null);
+      case "loopReenter":
+        d.loopActive = d.loopIn !== null && d.loopOut !== null;
+        return ok(null);
+      case "sync": {
+        const other = decks[c.deck === "A" ? "B" : "A"];
+        const mine = d.trackId === null ? null : (rows.get(d.trackId)?.bpm ?? null);
+        const theirs = other.trackId === null ? null : (rows.get(other.trackId)?.bpm ?? null);
+        if (mine === null || theirs === null) return fail("SYNC needs both decks' BPM");
+        d.position = position(d);
+        d.startedAt = now();
+        d.pitch = (theirs * (1 + other.pitch)) / mine - 1;
+        return ok(null);
+      }
       default:
         return ok(null);
     }
@@ -351,6 +442,7 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
         decks: [snapshotDeck(decks.A), snapshotDeck(decks.B)],
         sampleRate: 48_000,
         output: { running: false, device: null, reopens: 0, problem: "browser preview: no audio" },
+        master: decks.A.playing || decks.B.playing ? [0.6, 0.4] : [0, 0],
       };
       return resolve(ok(snap));
     },
@@ -531,6 +623,43 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     engineCommand: (c) => {
       calls.push(["engineCommand", c]);
       return resolve(command(c));
+    },
+    deckWaveform: (trackId) => {
+      const row = rows.get(trackId);
+      if (!row) return resolve(fail("no waveform for this track"));
+      // A synthetic waveform: beats every half second, louder in the middle of the track.
+      const seconds = (row.durationMs ?? 200_000) / 1000;
+      const binsPerSecond = 150;
+      const count = Math.round(seconds * binsPerSecond);
+      const bins = new Uint8Array(count * 4);
+      for (let i = 0; i < count; i++) {
+        const t = i / binsPerSecond;
+        const beat = Math.exp(-((t % 0.5) / 0.08));
+        const shape = 0.5 + 0.5 * Math.sin((Math.PI * t) / seconds);
+        bins[i * 4] = Math.round(255 * Math.min(1, 0.3 + 0.7 * beat) * shape);
+        bins[i * 4 + 1] = Math.round(230 * beat * shape);
+        bins[i * 4 + 2] = Math.round(140 * shape);
+        bins[i * 4 + 3] = Math.round(90 * (1 - beat) * shape);
+      }
+      return resolve(ok({ binsPerSecond, count, bins }));
+    },
+    outputDevices: () =>
+      resolve(
+        ok({
+          devices: [
+            { id: "speakers", name: "Speakers (Realtek)", isDefault: true },
+            { id: "ddj-400", name: "DDJ-400", isDefault: false },
+          ],
+          current: { id: "speakers", name: "Speakers (Realtek)", isDefault: true },
+          preferred: settings.get("audio.preferred_output") ?? null,
+          sampleRate: 48_000,
+        }),
+      ),
+    setPreferredOutput: (id) => {
+      calls.push(["setPreferredOutput", id]);
+      if (id === null) settings.delete("audio.preferred_output");
+      else settings.set("audio.preferred_output", id);
+      return resolve(ok(null));
     },
     queueList: () => resolve(ok(queueEntries())),
     queueAdd: (trackIds, before) => {

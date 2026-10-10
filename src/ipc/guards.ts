@@ -11,6 +11,8 @@ import type {
   FolderEntry,
   FolderTracks,
   ImportReport,
+  OutputDevice,
+  OutputDevices,
   QueueEntry,
   StatusSnapshot,
   TrackRow,
@@ -131,6 +133,8 @@ export function isQueueEntry(v: unknown): v is QueueEntry {
   return isRecord(v) && isNumber(v.uid) && isTrackRow(v.track);
 }
 
+const isPair = (v: unknown): boolean => Array.isArray(v) && v.length === 2 && v.every(isNumber);
+
 function isDeckSnapshot(v: unknown): boolean {
   return (
     isRecord(v) &&
@@ -139,8 +143,31 @@ function isDeckSnapshot(v: unknown): boolean {
     isBool(v.playing) &&
     isNumber(v.tempo) &&
     isNumber(v.decoded) &&
-    Array.isArray(v.cues)
+    Array.isArray(v.cues) &&
+    isNumber(v.mainCue) &&
+    isNumber(v.keyShift) &&
+    isBool(v.loopActive) &&
+    isString(v.waveform) &&
+    isPair(v.meter)
   );
+}
+
+function isOutputDevice(v: unknown): v is OutputDevice {
+  return isRecord(v) && isString(v.id) && isString(v.name) && isBool(v.isDefault);
+}
+
+export function isOutputDevices(v: unknown): v is OutputDevices {
+  return (
+    isRecord(v) &&
+    arrayOf(isOutputDevice)(v.devices) &&
+    (v.current === null || isOutputDevice(v.current)) &&
+    isStrOrNull(v.preferred) &&
+    isNumber(v.sampleRate)
+  );
+}
+
+export function isArrayBuffer(v: unknown): v is ArrayBuffer {
+  return v instanceof ArrayBuffer;
 }
 
 export function isStatusSnapshot(v: unknown): v is StatusSnapshot {
@@ -150,6 +177,7 @@ export function isStatusSnapshot(v: unknown): v is StatusSnapshot {
     v.decks.length === 2 &&
     v.decks.every(isDeckSnapshot) &&
     isNumber(v.sampleRate) &&
-    isRecord(v.output)
+    isRecord(v.output) &&
+    isPair(v.master)
   );
 }
