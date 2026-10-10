@@ -6,6 +6,18 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 04:00 — M0: App shell with custom titlebar
+- **Added:** BongPlayer's own titlebar: logo, name and version (read from the Rust side), and
+  minimise / maximise / close buttons with tooltips showing the Windows shortcuts. The titlebar
+  can be dragged to move the window. The rest of the window is empty until later milestones.
+- **Added:** the default skin "Midnight Slate"; every colour is a skin variable, so other skins
+  can be added later as data.
+- **Added:** if the interface cannot reach the Rust side, a red error bar says so instead of
+  failing silently. In a plain browser (`npm run dev`) the interface uses stand-in answers.
+- **Tests:** `npx tsc --noEmit` and `npm run build` pass (automated UI tests come in the next commit).
+- **Not verified:** window dragging and the three window buttons need the installed app (owner check).
+- **Commit:** pending
+
 ### 2026-10-10 03:59 — M0: Project skeleton (Rust + Tauri v2 + React 19)
 - **Added:** the empty application skeleton: a Rust workspace with the Tauri v2 desktop app,
   and a React 19 + TypeScript + Vite + Tailwind user interface. The app has its own BongPlayer
@@ -16,7 +28,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   yet — they would be empty placeholders. They arrive in M1 and M3.
 - **Tests:** `cargo build --workspace` and `npx tsc --noEmit` pass.
 - **Not verified:** none yet (the window is checked after the installer exists).
-- **Commit:** pending
+- **Commit:** d085799
 
 ### 2026-10-10 03:59 — M0: Repository basics
 - **Added:** ignore rules for build output (`node_modules`, `target`, `dist`) and consistent
