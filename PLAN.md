@@ -124,9 +124,9 @@ Three views, switched by tabs at the top: **STANDARD**, **DECKS** (larger decks)
 "A" = automated (cargo / vitest / browser tests), "M" = manual check on a real PC.
 
 ### M0 — Scaffold & CI
-- A: Cargo workspace + Tauri v2 + React 19 + TS + Vite + Tailwind; `cargo test`, `tsc --noEmit`, `vitest` in CI.
-- A: GitHub Actions builds a Windows NSIS installer and uploads it as an artifact.
-- M: Installer runs, window opens with the app shell.
+- [x] A: Cargo workspace + Tauri v2 + React 19 + TS + Vite + Tailwind; `cargo test`, `tsc --noEmit`, `vitest` in CI.
+- [x] A: GitHub Actions builds a Windows NSIS installer and uploads it as an artifact.
+- [ ] M: Installer runs, window opens with the app shell.
 
 ### M1 — Engine core (no UI)
 - A: Decode mp3 / flac / wav / m4a / ogg; duration and sample rate correct.

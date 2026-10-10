@@ -6,6 +6,15 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 04:24 — M0: Automated M0 tests ticked in the plan
+- **Changed:** `PLAN.md` — the two automated M0 tests are ticked: the project skeleton with
+  `cargo test`, `tsc --noEmit` and `vitest` running in CI, and GitHub building and uploading the
+  Windows installer. The manual test (install and open on a real PC) stays unticked.
+- **Tests:** GitHub Actions run 38015956130 on `m0-scaffold` passed both jobs ("Lint, typecheck
+  and tests" and "Windows installer (NSIS)"); artifact `bongplayer-windows-installer` (1.8 MB) uploaded.
+- **Not verified:** installer runs on the bar PC and the window opens with the app shell (owner check).
+- **Commit:** pending
+
 ### 2026-10-10 04:09 — M0: Automatic build on GitHub (CI) with Windows installer
 - **Added:** every push to GitHub now runs all checks (lint, typecheck, interface tests, Rust
   formatting, clippy, Rust tests) on a Windows machine, and then builds the Windows installer
@@ -16,7 +25,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 - **Tests:** locally `npm run tauri build` produced `BongPlayer_0.1.0_x64-setup.exe` (1.8 MB).
   The GitHub run result is recorded in the next entry.
 - **Not verified:** installing and opening the app on the bar PC (owner check).
-- **Commit:** pending
+- **Commit:** d6a6db8
 
 ### 2026-10-10 04:09 — M0: Development server port changed to 5173
 - **Fixed:** `npm run dev` / `npm run tauri dev` could not start on this PC ("permission denied"
