@@ -221,6 +221,37 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
   let lockOpts = { volumeAllowed: true, holdUnlocks: true, pin: null as string | null };
   let duckOn = false;
   const lockedError = <T>(): IpcResult<T> => fail("Locked — unlock with the PIN or by holding LOCK");
+  const stations = new Map<number, { id: number; name: string; url: string; playMinutes: number }>();
+  let nextStation = 1;
+  const liveDeck: Record<DeckName, { name: string; url: string } | null> = { A: null, B: null };
+  const stationRow = (id: number | null, name: string, url: string, minutes: number): TrackRow => ({
+    id: -(id ?? 0) - 1,
+    path: url,
+    title: name,
+    artist: "Internet radio",
+    album: "",
+    remix: "",
+    genre: "",
+    year: null,
+    durationMs: minutes * 60_000,
+    bpm: null,
+    key: null,
+    bpmIsManual: false,
+    rating: 0,
+    playCount: 0,
+    lastPlayed: null,
+    firstSeen: 0,
+    hasCover: false,
+    analyzed: false,
+    missing: false,
+  });
+  const probeUrl = (url: string): IpcResult<string> => {
+    if (!/^https?:\/\//i.test(url)) return fail(`network problem: not a web address: ${url}`);
+    if (/\.html?(\?|$)|\.php(\?|$)/i.test(url)) {
+      return fail("this is a web page, not a stream — open it in a browser and look for the stream link (often ending in .mp3, .aac, .pls or .m3u)");
+    }
+    return ok("Test Radio (audio/mpeg)");
+  };
 
   // ----- crates -----
   interface MockCrate {
@@ -254,6 +285,10 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
   let nextUid = 1;
   const queueEntries = (): QueueEntry[] =>
     queue.flatMap((q) => {
+      if (q.trackId < 0) {
+        const st = stations.get(-q.trackId - 1);
+        return st ? [{ uid: q.uid, track: stationRow(st.id, st.name, st.url, st.playMinutes) }] : [];
+      }
       const track = rows.get(q.trackId);
       return track ? [{ uid: q.uid, track }] : [];
     });
@@ -287,6 +322,40 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     return d.playing ? d.position + (now() - d.startedAt) * (1 + d.pitch) : d.position;
   }
   function snapshotDeck(d: MockDeck): DeckSnapshot {
+    const lv = d === decks.A ? liveDeck.A : d === decks.B ? liveDeck.B : null;
+    if (lv) {
+      return {
+        loaded: true,
+        trackId: null,
+        title: "Live Artist - Live Song",
+        artist: lv.name,
+        path: lv.url,
+        position: position(d),
+        duration: null,
+        playing: d.playing,
+        ended: false,
+        tempo: 1,
+        pitch: 0,
+        pitchRange: d.pitchRange,
+        keyLock: false,
+        scratching: false,
+        trackBpm: null,
+        bpm: null,
+        key: null,
+        decoded: 1,
+        decodeError: /\.html?|\.php/i.test(lv.url) ? "this is a web page, not a stream" : null,
+        cues: Array<number | null>(8).fill(null),
+        mainCue: 0,
+        keyShift: 0,
+        loopIn: null,
+        loopOut: null,
+        loopActive: false,
+        waveform: "none",
+        meter: d.playing ? [0.5, 0.35] : [0, 0],
+        live: true,
+        radioState: /\.html?|\.php/i.test(lv.url) ? "error: this is a web page, not a stream" : "playing",
+      };
+    }
     const row = d.trackId === null ? undefined : rows.get(d.trackId);
     const duration = row?.durationMs ? row.durationMs / 1000 : null;
     let pos = position(d);
@@ -325,13 +394,20 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       loopActive: d.loopActive,
       waveform: row ? "ready" : "none",
       meter: playing ? [0.5, 0.35] : [0, 0],
+      live: false,
+      radioState: null,
     };
   }
   function load(deck: DeckName, id: number): IpcResult<TrackRow> {
     const row = rows.get(id);
     if (!row) return fail(`track ${id} not found`);
     decks[deck] = { ...newDeck(), trackId: id, pitchRange: decks[deck].pitchRange };
+    liveDeck[deck] = null;
     return ok(row);
+  }
+  function loadLive(deck: DeckName, name: string, url: string): void {
+    decks[deck] = { ...newDeck(), pitchRange: decks[deck].pitchRange };
+    liveDeck[deck] = { name, url };
   }
   function command(c: UiCommand): IpcResult<null> {
     const volume = c.type === "fader" || c.type === "master";
@@ -348,7 +424,7 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
       case "play":
       case "pause":
       case "togglePlay": {
-        if (d.trackId === null) return ok(null);
+        if (d.trackId === null && !liveDeck[c.deck]) return ok(null);
         const play = c.type === "play" || (c.type === "togglePlay" && !d.playing);
         d.position = position(d);
         d.playing = play;
@@ -791,6 +867,58 @@ export function createMockBackend(options: MockOptions = {}): Backend & {
     duckDepth: (db) => {
       settings.set("duck.depth_db", String(db));
       return resolve(ok(null));
+    },
+    radioPresets: () =>
+      resolve(
+        ok([
+          { name: "Bravo (Live)", url: "https://relay1.social3.hr/radio/8310/radio.mp3" },
+          { name: "Radio Dalmacija", url: "http://shoutcast.pondi.hr:8000/listen.pls" },
+        ]),
+      ),
+    stationsList: () => resolve(ok([...stations.values()].sort((a, b) => a.name.localeCompare(b.name)))),
+    stationSave: (id, name, url, playMinutes) => {
+      calls.push(["stationSave", { id, name, url, playMinutes }]);
+      if (name.trim() === "") return resolve(fail("the station needs a name"));
+      if (!/^https?:\/\//i.test(url)) return resolve(fail("the address must start with http:// or https://"));
+      const existing = [...stations.values()].find((st) => st.url === url.trim());
+      const sid = id ?? existing?.id ?? nextStation++;
+      stations.set(sid, { id: sid, name: name.trim(), url: url.trim(), playMinutes });
+      return resolve(ok(sid));
+    },
+    stationDelete: (id) => {
+      calls.push(["stationDelete", id]);
+      return resolve(stations.delete(id) ? ok(null) : fail(`not found: station ${id}`));
+    },
+    stationProbe: (url) => {
+      calls.push(["stationProbe", url]);
+      return resolve(probeUrl(url));
+    },
+    deckLoadStation: (deck, id) => {
+      calls.push(["deckLoadStation", { deck, id }]);
+      if (locked) return resolve(lockedError());
+      const st = stations.get(id);
+      if (!st) return resolve(fail(`not found: station ${id}`));
+      loadLive(deck, st.name, st.url);
+      return resolve(ok(stationRow(st.id, st.name, st.url, st.playMinutes)));
+    },
+    deckLoadUrl: (deck, url, name) => {
+      calls.push(["deckLoadUrl", { deck, url, name }]);
+      if (locked) return resolve(lockedError());
+      if (!/^https?:\/\//i.test(url)) return resolve(fail("a station address must start with http:// or https://"));
+      loadLive(deck, name ?? url, url);
+      return resolve(ok(stationRow(null, name ?? url, url, 60)));
+    },
+    queueAddStation: (id, before) => {
+      calls.push(["queueAddStation", { id, before }]);
+      if (locked) return resolve(lockedError());
+      const st = stations.get(id);
+      if (!st) return resolve(fail(`not found: station ${id}`));
+      const uid = nextUid++;
+      const at = before === null ? -1 : queue.findIndex((q) => q.uid === before);
+      const item = { uid, trackId: -st.id - 1 };
+      if (at < 0) queue.push(item);
+      else queue.splice(at, 0, item);
+      return resolve(ok(queueEntries()));
     },
     queueList: () => resolve(ok(queueEntries())),
     queueAdd: (trackIds, before) => {

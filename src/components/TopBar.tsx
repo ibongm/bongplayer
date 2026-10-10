@@ -7,6 +7,7 @@ import { useStore } from "../state/store";
 import { settingsOpen, view, type View } from "../state/ui";
 import { openMenu } from "./ContextMenu";
 import { DuckButton, LockButton } from "./LockDuck";
+import { radioOpen } from "./RadioStrip";
 
 const VIEWS: { id: View; label: string; key: string }[] = [
   { id: "standard", label: "STANDARD", key: "Ctrl+1" },
@@ -30,6 +31,7 @@ export const SHORTCUTS: [string, string][] = [
   ["Enter / Shift+Enter", "Load selected track to deck A / B"],
   ["Q", "Add selected tracks to Automix"],
   ["Ctrl+,", "Settings"],
+  ["Ctrl+R", "Radio strip"],
 ];
 
 function Clock(): ReactNode {
@@ -46,6 +48,23 @@ function Clock(): ReactNode {
     <span data-tauri-drag-region className="whitespace-nowrap text-[15px] font-semibold tabular-nums" title="Time">
       {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
     </span>
+  );
+}
+
+function RadioToggle(): ReactNode {
+  const open = useStore(radioOpen, (o) => o);
+  return (
+    <button
+      type="button"
+      aria-pressed={open}
+      title="Show / hide the Radio strip (Ctrl+R)"
+      className={`rounded px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${open ? "bg-accent/30 text-text" : "bg-surface-raised text-muted hover:text-text"}`}
+      onClick={() => {
+        radioOpen.set(!open);
+      }}
+    >
+      RADIO
+    </button>
   );
 }
 
@@ -113,6 +132,7 @@ export function TopBar(): ReactNode {
       >
         ⌨
       </button>
+      <RadioToggle />
       <DuckButton />
       <LockButton />
       <StatusPill />

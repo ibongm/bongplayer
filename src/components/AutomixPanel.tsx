@@ -4,7 +4,20 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { startPointerDrag } from "../dnd/drag";
 import { backend } from "../ipc/backend";
-import { loadToDeck, queue, refreshQueue, setQueue, status } from "../state/app";
+import type { DeckName, QueueEntry } from "../ipc/types";
+import { loadToDeck, notify, queue, refreshQueue, setQueue, status } from "../state/app";
+
+/** Loads a queue entry (track or station) onto a deck. */
+function loadEntry(deck: DeckName, e: QueueEntry): void {
+  if (e.track.id < 0) {
+    // Station entries carry -(station id) - 1 as their id.
+    void backend()
+      .deckLoadStation(deck, -e.track.id - 1)
+      .then((r) => {
+        if (!r.ok) notify("error", `Load to deck ${deck}: ${r.error}`);
+      });
+  } else void loadToDeck(deck, e.track.id);
+}
 import { clickRow, emptySelection, moveFocus, selectAll, selectedInOrder, type Selection } from "../state/selection";
 import { useStore } from "../state/store";
 import { openMenu } from "./ContextMenu";
@@ -56,14 +69,14 @@ export function AutomixPanel(): ReactNode {
         id: "load-a",
         label: n > 1 ? `Load “${focusEntry?.track.title ?? ""}” to Deck A` : "Load to Deck A",
         onSelect: () => {
-          if (focusEntry) void loadToDeck("A", focusEntry.track.id);
+          if (focusEntry) loadEntry("A", focusEntry);
         },
       },
       {
         id: "load-b",
         label: n > 1 ? `Load “${focusEntry?.track.title ?? ""}” to Deck B` : "Load to Deck B",
         onSelect: () => {
-          if (focusEntry) void loadToDeck("B", focusEntry.track.id);
+          if (focusEntry) loadEntry("B", focusEntry);
         },
       },
       {

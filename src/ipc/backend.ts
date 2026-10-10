@@ -7,6 +7,8 @@ import {
   isAnalysisReport,
   isArrayBuffer,
   isOutputDevices,
+  isPreset,
+  isStationRow,
   isAppInfo,
   isCrateEntry,
   isCrateInfo,
@@ -18,6 +20,7 @@ import {
   isLockInfo,
   isNumber,
   isQueueEntry,
+  isString,
   isStatusSnapshot,
   isTrackRow,
   isUnit,
@@ -40,7 +43,9 @@ import type {
   ImportReport,
   IpcResult,
   OutputDevices,
+  Preset,
   QueueEntry,
+  StationRow,
   StatusSnapshot,
   TrackRow,
   UiCommand,
@@ -97,6 +102,14 @@ export interface Backend {
   ): Promise<IpcResult<null>>;
   duck(on: boolean): Promise<IpcResult<null>>;
   duckDepth(db: number): Promise<IpcResult<null>>;
+  radioPresets(): Promise<IpcResult<Preset[]>>;
+  stationsList(): Promise<IpcResult<StationRow[]>>;
+  stationSave(id: number | null, name: string, url: string, playMinutes: number): Promise<IpcResult<number>>;
+  stationDelete(id: number): Promise<IpcResult<null>>;
+  stationProbe(url: string): Promise<IpcResult<string>>;
+  deckLoadStation(deck: DeckName, id: number): Promise<IpcResult<TrackRow>>;
+  deckLoadUrl(deck: DeckName, url: string, name: string | null): Promise<IpcResult<TrackRow>>;
+  queueAddStation(id: number, before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueList(): Promise<IpcResult<QueueEntry[]>>;
   queueAdd(trackIds: number[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
   queueAddPaths(paths: string[], before: number | null): Promise<IpcResult<QueueEntry[]>>;
@@ -199,6 +212,14 @@ export const tauriBackend: Backend = {
     call("lock_configure", { volumeAllowed, holdUnlocks, currentPin, newPin }, unit),
   duck: (on) => call("duck", { on }, unit),
   duckDepth: (db) => call("duck_depth", { db }, unit),
+  radioPresets: () => call("radio_presets", {}, arrayOf(isPreset)),
+  stationsList: () => call("stations_list", {}, arrayOf(isStationRow)),
+  stationSave: (id, name, url, playMinutes) => call("station_save", { id, name, url, playMinutes }, isNumber),
+  stationDelete: (id) => call("station_delete", { id }, unit),
+  stationProbe: (url) => call("station_probe", { url }, isString),
+  deckLoadStation: (deck, id) => call("deck_load_station", { deck, id }, isTrackRow),
+  deckLoadUrl: (deck, url, name) => call("deck_load_url", { deck, url, name }, isTrackRow),
+  queueAddStation: (id, before) => call("queue_add_station", { id, before }, queue),
   queueList: () => call("queue_list", {}, queue),
   queueAdd: (trackIds, before) => call("queue_add", { trackIds, before }, queue),
   queueAddPaths: (paths, before) => call("queue_add_paths", { paths, before }, queue),

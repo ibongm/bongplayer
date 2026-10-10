@@ -149,8 +149,18 @@ function isDeckSnapshot(v: unknown): boolean {
     isNumber(v.keyShift) &&
     isBool(v.loopActive) &&
     isString(v.waveform) &&
-    isPair(v.meter)
+    isPair(v.meter) &&
+    isBool(v.live) &&
+    isStrOrNull(v.radioState)
   );
+}
+
+export function isStationRow(v: unknown): v is import("./types").StationRow {
+  return isRecord(v) && isNumber(v.id) && isString(v.name) && isString(v.url) && isNumber(v.playMinutes);
+}
+
+export function isPreset(v: unknown): v is import("./types").Preset {
+  return isRecord(v) && isString(v.name) && isString(v.url);
 }
 
 function isOutputDevice(v: unknown): v is OutputDevice {

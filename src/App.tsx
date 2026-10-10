@@ -3,6 +3,7 @@ import { ContextMenuHost } from "./components/ContextMenu";
 import { DayView } from "./components/DayView";
 import { DialogHost } from "./components/Dialog";
 import { toggleDuck, unlockWithPin } from "./components/LockDuck";
+import { RadioStrip, radioOpen } from "./components/RadioStrip";
 import { Dock } from "./components/Dock";
 import { Deck } from "./components/deck/Deck";
 import { DeckStrip } from "./components/deck/DeckStrip";
@@ -102,6 +103,11 @@ function useGlobalShortcuts(): void {
         if (!e.repeat) toggleDuck();
         return;
       }
+      if (ctrl && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        radioOpen.set(!radioOpen.get());
+        return;
+      }
       if (ctrl && e.key === ",") {
         e.preventDefault();
         settingsOpen.set(true);
@@ -173,6 +179,7 @@ export function App({ appInfo }: AppProps): ReactNode {
         <StartupError appInfo={appInfo} />
       </Suspense>
       {error !== null && <ErrorBanner message={error} />}
+      <RadioStrip />
       <main className="flex min-h-0 w-full flex-1 flex-col">
         <MainArea />
       </main>

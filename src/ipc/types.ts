@@ -154,6 +154,22 @@ export interface DeckSnapshot {
   waveform: "none" | "computing" | "ready" | "failed";
   /** [peak, rms] after the channel strip, linear. */
   meter: [number, number];
+  /** A radio station is loaded (no length, seek, loops or cues). */
+  live: boolean;
+  /** "connecting", "playing", "reconnecting in 2 s (…)", "error: …" for radio. */
+  radioState: string | null;
+}
+
+export interface StationRow {
+  id: number;
+  name: string;
+  url: string;
+  playMinutes: number;
+}
+
+export interface Preset {
+  name: string;
+  url: string;
 }
 
 export interface OutputSnapshot {

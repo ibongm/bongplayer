@@ -6,6 +6,21 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
 
 ## [Unreleased]
 
+### 2026-10-10 07:39 — M6: Radio strip and live decks on screen
+- **Added:** RADIO button (Ctrl+R) opens the Radio strip under the top bar: choose a saved
+  station or a preset (Bravo (Live), Radio Dalmacija), edit name and address, **Test** (checks
+  the address plays; a web page gets the plain "this is a web page, not a stream" message),
+  **→ A / → B**, **Save**, **+ Automix** (with "Automix plays N min"), **Delete**.
+- **Added:** a deck playing a station shows a red LIVE badge, the song title from the station,
+  the station name and the connection state; loops, hot cues and pitch are replaced by a note
+  that they do not apply. Station entries in the Automix queue load onto a deck as stations.
+- **Fixed (found by lint):** a React hook-order mistake in the deck's status line.
+- **Tests:** 2 new screen tests pass (59 in total): presets fill the fields; Test shows
+  "Works" or the web-page message; → A loads a live station (LIVE badge, title, no loops /
+  pitch); Save, + Automix (shown as "Internet radio", 30:00) and loading it from the queue.
+- **Not verified:** the real stations through the speakers on the bar PC (owner, PLAN M6).
+- **Commit:** pending
+
 ### 2026-10-10 07:36 — M6: Radio in the app — stations, decks, Automix
 - **Added:** saved radio stations in the library (name, address, how many minutes Automix
   plays it), plus two ready-made presets: Bravo (Live) and Radio Dalmacija.
@@ -24,7 +39,7 @@ Categories: **Added**, **Changed**, **Fixed**, **Removed**, **Security**.
   the station's play time. Plus 1 stations-table test (create, update, no duplicates, checks,
   delete). All earlier tests still pass.
 - **Not verified:** the real stations through the speakers (owner).
-- **Commit:** pending
+- **Commit:** a873546
 
 ### 2026-10-10 07:29 — M6: Secure radio streams fixed; the two old stations found and working
 - **Fixed (found by trying the real stations):** secure (https) streams would have stopped

@@ -520,8 +520,25 @@ function Info({ deck, index }: { deck: DeckName; index: 0 | 1 }): ReactNode {
 function DeckState({ index }: { index: 0 | 1 }): ReactNode {
   const loaded = useDeck(index, (d) => d.loaded, false);
   const error = useDeck(index, (d) => d.decodeError, null);
+  const live = useDeck(index, (d) => d.live, false);
+  const radio = useDeck(index, (d) => d.radioState, null);
   const decoded = useDeck(index, (d) => Math.round(d.decoded * 100), 0);
   const wave = useDeck(index, (d) => d.waveform, "none");
+  if (loaded && live) {
+    if (error) {
+      return (
+        <p role="alert" className="truncate text-[11px] text-danger" title={error}>
+          Radio: {error}
+        </p>
+      );
+    }
+    return (
+      <p className="truncate text-[11px] text-muted" title={radio ?? ""}>
+        <span className="mr-1 rounded bg-danger px-1 text-[10px] font-bold text-danger-text">LIVE</span>
+        {radio === "playing" ? "receiving the station" : (radio ?? "")}
+      </p>
+    );
+  }
   if (!loaded) return null;
   if (error) {
     return (
@@ -540,6 +557,7 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
   const title = useDeck(index, (d) => d.title, "");
   const artist = useDeck(index, (d) => d.artist, "");
   const loaded = useDeck(index, (d) => d.loaded, false);
+  const live = useDeck(index, (d) => d.live, false);
   const platter = large ? 200 : 140;
   return (
     <section
@@ -562,13 +580,21 @@ export function Deck({ deck, large = false }: { deck: DeckName; large?: boolean 
       <Overview deck={deck} index={index} />
       <div className={`flex gap-3 ${deck === "B" ? "flex-row-reverse" : ""}`}>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <LoopPanel deck={deck} index={index} />
-          <HotCuePads deck={deck} index={index} />
+          {live ? (
+            <p className="rounded border border-border bg-bg p-2 text-[12px] text-muted">
+              A radio station plays live: loops, hot cues, pitch and scratching do not apply.
+            </p>
+          ) : (
+            <>
+              <LoopPanel deck={deck} index={index} />
+              <HotCuePads deck={deck} index={index} />
+            </>
+          )}
           <div className="flex justify-center">
             <Platter deck={deck} index={index} size={platter} />
           </div>
         </div>
-        <PitchControl deck={deck} index={index} length={large ? 240 : 170} />
+        {!live && <PitchControl deck={deck} index={index} length={large ? 240 : 170} />}
       </div>
       <Transport deck={deck} index={index} />
     </section>
